@@ -1,5 +1,5 @@
 const sketch = (p) => {
-    const CANVAS_WIDTH = 600;
+    const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 500;
     let exampleImg;
     p.preload = () => {
@@ -9,7 +9,7 @@ const sketch = (p) => {
         p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
     };
     p.draw = () => {
-        p.background(20, 50, 0);
+        p.background(p.cos(p.frameCount / 50) * 100 + 100, 50, 0);
         p.fill(250, 250, 120);
         p.square(150, 150, SQUARE_SIZE);
         p.image(exampleImg, 200, 200, 350, 200);
