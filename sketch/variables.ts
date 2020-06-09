@@ -1,0 +1,1 @@
+const SQUARE_SIZE : number = 120;
