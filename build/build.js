@@ -12,7 +12,7 @@ const sketch = (p) => {
         p.background(p.cos(p.frameCount / 50) * 100 + 100, 50, 0);
         p.fill(250, 250, 120);
         p.square(150, 150, SQUARE_SIZE);
-        p.image(exampleImg, 200, 200, 350, 200);
+        p.image(exampleImg, 200, 200, 200, 200);
     };
 };
 window.onload = () => {
