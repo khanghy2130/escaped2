@@ -1,10 +1,6 @@
 const sketch = (p) => {
-    const CANVAS_WIDTH = 800;
-    const CANVAS_HEIGHT = 500;
-    let exampleImg;
-    p.preload = () => {
-        exampleImg = p.loadImage("build/assets/example-image.png");
-    };
+    const CANVAS_WIDTH = 600;
+    const CANVAS_HEIGHT = 600;
     p.setup = () => {
         p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
     };
@@ -12,7 +8,6 @@ const sketch = (p) => {
         p.background(p.cos(p.frameCount / 50) * 100 + 100, 50, 0);
         p.fill(250, 250, 120);
         p.square(150, 150, SQUARE_SIZE);
-        p.image(exampleImg, 200, 200, 200, 200);
     };
 };
 window.onload = () => {
