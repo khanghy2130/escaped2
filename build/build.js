@@ -1,13 +1,10 @@
 const sketch = (p) => {
-    const CANVAS_WIDTH = 600;
-    const CANVAS_HEIGHT = 600;
+    const CANVAS_SIZE = 600;
     p.setup = () => {
-        p.createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+        p.createCanvas(CANVAS_SIZE, CANVAS_SIZE);
     };
     p.draw = () => {
-        p.background(p.cos(p.frameCount / 50) * 100 + 100, 50, 0);
-        p.fill(250, 250, 120);
-        p.square(150, 150, SQUARE_SIZE);
+        p.background(100);
     };
 };
 window.onload = () => {
@@ -17,5 +14,13 @@ window.onload = () => {
     };
     new p5(sketch, canvasDiv);
 };
-const SQUARE_SIZE = 120;
+const SQUARE_VECTOR_KEYS_LIST = ["1,0", "0,1", "-1,0", "0,-1"];
+class Tile {
+    constructor(x, y) {
+        this.pos = [x, y];
+    }
+}
+function getWallRenderPos(tile, vectorKey, tt) {
+    return [[0, 0], [0, 0]];
+}
 //# sourceMappingURL=build.js.map
