@@ -1,5 +1,5 @@
 const SCALINGS = {
-	SQUARE: 100.0, TRIANGLE: 110.0, HEXAGON: 60.0
+	SQUARE: 80.0, TRIANGLE: 100.0, HEXAGON: 50.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3)/2,
@@ -17,6 +17,7 @@ interface Tile {
 	renderPos: Position2D;
 	neighbors: {[keys: string]: Tile | null};
 	verticesList: Position2D[];
+    isUpward?: boolean;
 }
 
 // right, down, left, up
@@ -36,7 +37,8 @@ class Square_Tile implements Tile {
 	neighbors: {[keys: string]: Tile | null} = {};
 	verticesList: Position2D[] = [];
 
-	constructor (x: number, y: number){
+	constructor (pos: Position2D){
+        const [x, y] = pos;
 		this.pos = [x, y];
         FOUR_DIR_VECTORS_LIST.forEach(vec => {
 			this.neighbors[posToKey([
@@ -66,7 +68,8 @@ class Hexagon_Tile implements Tile {
 	neighbors: {[keys: string]: Tile | null} = {};
 	verticesList: Position2D[] = [];
 
-	constructor (x: number, y: number){
+	constructor (pos: Position2D){
+        const [x, y] = pos;
 		this.pos = [x, y];
         FOUR_DIR_VECTORS_LIST.forEach(vec => {
 			this.neighbors[posToKey([
@@ -99,7 +102,8 @@ class Triangle_Tile implements Tile {
 	verticesList: Position2D[] = [];
     isUpward: boolean = false;
 
-	constructor (x: number, y: number){
+	constructor (pos: Position2D){
+        const [x, y] = pos;
 		this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
         FOUR_DIR_VECTORS_LIST.forEach(vec => {
@@ -141,6 +145,11 @@ function renderTile(p: p5, tile: Tile): void {
 	p.beginShape();
     tile.verticesList.forEach(vPos => p.vertex(vPos[0],vPos[1]));
 	p.endShape(p.CLOSE);
+
+    p.push();
+    p.fill("white");
+    p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
+    p.pop();
 }
 
 
