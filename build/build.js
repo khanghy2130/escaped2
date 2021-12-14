@@ -98,12 +98,6 @@ const CONSTANTS = {
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3) / 2,
     TRIANGLE_CENTER_Y: SCALINGS.TRIANGLE / (Math.sqrt(3) * 2),
 };
-const FOUR_DIR_VECTORS_LIST = [
-    [1, 0], [0, 1], [-1, 0], [0, -1]
-];
-const SIX_DIR_VECTORS_LIST = [
-    [1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]
-];
 class Square_Tile {
     constructor(pos) {
         this.pos = [0, 0];
@@ -112,7 +106,7 @@ class Square_Tile {
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        [[1, 0], [0, 1], [-1, 0], [0, -1]].forEach(vec => {
             this.neighbors[posToKey([
                 x + vec[0],
                 y + vec[1]
@@ -140,7 +134,7 @@ class Hexagon_Tile {
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        [[1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]].forEach(vec => {
             this.neighbors[posToKey([
                 x + vec[0],
                 y + vec[1]
@@ -172,7 +166,12 @@ class Triangle_Tile {
         const [x, y] = pos;
         this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        let vecList;
+        if (this.isUpward)
+            vecList = [[1, 0], [0, 1], [-1, 0]];
+        else
+            vecList = [[1, 0], [-1, 0], [0, -1]];
+        vecList.forEach(vec => {
             this.neighbors[posToKey([
                 x + vec[0],
                 y + vec[1]

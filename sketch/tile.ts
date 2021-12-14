@@ -20,16 +20,6 @@ interface Tile {
     isUpward?: boolean;
 }
 
-// right, down, left, up
-const FOUR_DIR_VECTORS_LIST : Position2D[] = [
-	[1,0], [0,1], [-1,0], [0,-1]
-];
-// up left, up, up right, down right, down, down left
-const SIX_DIR_VECTORS_LIST : Position2D[] = [
-	[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]
-];
-
-
 
 class Square_Tile implements Tile {
 	pos: Position2D = [0,0];
@@ -40,7 +30,7 @@ class Square_Tile implements Tile {
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        [[1,0], [0,1], [-1,0], [0,-1]].forEach(vec => {
 			this.neighbors[posToKey([
 				x + vec[0],
 				y + vec[1]
@@ -71,7 +61,7 @@ class Hexagon_Tile implements Tile {
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        [[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]].forEach(vec => {
 			this.neighbors[posToKey([
 				x + vec[0],
 				y + vec[1]
@@ -106,7 +96,10 @@ class Triangle_Tile implements Tile {
         const [x, y] = pos;
 		this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
-        FOUR_DIR_VECTORS_LIST.forEach(vec => {
+        let vecList: Position2D[];
+        if (this.isUpward) vecList = [[1,0], [0,1], [-1,0]];
+        else vecList = [[1,0], [-1,0], [0,-1]];
+        vecList.forEach(vec => {
 			this.neighbors[posToKey([
 				x + vec[0],
 				y + vec[1]
