@@ -1,5 +1,5 @@
 const SCALINGS = {
-	SQUARE: 80.0, TRIANGLE: 100.0, HEXAGON: 50.0
+	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3)/2,
@@ -8,6 +8,12 @@ const CONSTANTS = {
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3)/2,
     TRIANGLE_CENTER_Y : SCALINGS.TRIANGLE / (Math.sqrt(3)*2),
 };
+////////type DIR_DEGREE = 0 | 30 | 90 | 150 | 180 | 210 | 270 | 330;
+// const DIR_DEGREES: ({[keys: string]: DIR_DEGREE[]}) = {
+//     TRIANGLE: [30, 90, 150, 210, 270, 330],
+//     SQUARE: [0, 90, 180, 270],
+//     HEXAGON: [30, 90, 150, 210, 270, 330]
+// };
 
 type Tile_Type = "TRIANGLE" | "SQUARE" | "HEXAGON";
 type Position2D = [number, number];
@@ -16,8 +22,10 @@ interface Tile {
 	pos: Position2D;
 	renderPos: Position2D;
 	neighbors: {[keys: string]: Tile | null};
+    edgeNeighbors: {[keys: string]: boolean};
 	verticesList: Position2D[];
-    isUpward?: boolean;
+
+    isUpward?: boolean; // triangle only
 }
 
 
@@ -25,16 +33,19 @@ class Square_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: Tile | null} = {};
+    edgeNeighbors: {[keys: string]: boolean} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
         [[1,0], [0,1], [-1,0], [0,-1]].forEach(vec => {
-			this.neighbors[posToKey([
+            const nKey: string = posToKey([
 				x + vec[0],
 				y + vec[1]
-			])] = null;
+			]);
+			this.neighbors[nKey] = null;
+			this.edgeNeighbors[nKey] = true;
 		});
 		this.renderPos = [
 			x * SCALINGS.SQUARE, 
@@ -56,16 +67,19 @@ class Hexagon_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: Tile | null} = {};
+    edgeNeighbors: {[keys: string]: boolean} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
         [[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]].forEach(vec => {
-			this.neighbors[posToKey([
+			const nKey: string = posToKey([
 				x + vec[0],
 				y + vec[1]
-			])] = null;
+			]);
+			this.neighbors[nKey] = null;
+			this.edgeNeighbors[nKey] = true;
 		});
 		this.renderPos = [
 			x * SCALINGS.HEXAGON * 3/2,
@@ -89,6 +103,7 @@ class Triangle_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: Tile | null} = {};
+    edgeNeighbors: {[keys: string]: boolean} = {};
 	verticesList: Position2D[] = [];
     isUpward: boolean = false;
 
@@ -100,10 +115,12 @@ class Triangle_Tile implements Tile {
         if (this.isUpward) vecList = [[1,0], [0,1], [-1,0]];
         else vecList = [[1,0], [-1,0], [0,-1]];
         vecList.forEach(vec => {
-			this.neighbors[posToKey([
+			const nKey: string = posToKey([
 				x + vec[0],
 				y + vec[1]
-			])] = null;
+			]);
+			this.neighbors[nKey] = null;
+			this.edgeNeighbors[nKey] = true;
 		});
 
 		this.renderPos = [
@@ -148,7 +165,11 @@ function renderTile(p: p5, tile: Tile): void {
 
 
 // HELPER FUNCTIONS
-
+function getNewTile(pos: Position2D, tt: Tile_Type): Tile{
+    if (tt === "HEXAGON") return new Hexagon_Tile(pos);
+    if (tt === "SQUARE") return new Square_Tile(pos);
+    return new Triangle_Tile(pos);
+}
 function posToKey(pos:Position2D):string {
 	return `${pos[0]},${pos[1]}`
 }

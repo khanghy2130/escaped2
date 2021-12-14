@@ -11,7 +11,7 @@ const sketch = (p: p5) => {
         p.textSize(20);
 
 
-        MinigameMaster.createPuzzle(5, "TRIANGLE" || "SQUARE" || "HEXAGON", p);
+        MinigameMaster.setUpPuzzle(5, "TRIANGLE" || "SQUARE" || "HEXAGON", p);
 	};
 
 	p.draw = () => {
@@ -21,9 +21,12 @@ const sketch = (p: p5) => {
 		p.stroke(0);
 		p.noFill();
 
-         
+        
+        // rendering minigame scene
+        if (MinigameMaster.puzzleIsReady) MinigameMaster.render(p);
+        else MinigameMaster.generatePuzzle(p); 
 
-		MinigameMaster.render(p);
+		
 
 
         // var hex = new Hexagon_Tile([0, 0]);

@@ -1,53 +1,67 @@
-const PUZZLE_MAP_HEXAGON = [
-    [0, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
-    [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1],
-    [-3, 1], [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-1, -2],
-    [-1, 2], [-1, 3], [1, 2], [1, -2], [1, -3], [-3, 2], [-3, 3],
-    [3, -2], [3, -3], [-2, 2], [-2, 3], [2, -2], [2, -3]
-];
-const PUZZLE_MAP_SQUARE = [
-    [0, 0], [0, -1], [0, -2], [0, 1], [0, 2],
-    [1, 0], [2, 0], [3, 0], [-1, 0], [-2, 0], [-3, 0],
-    [1, 1], [2, 1], [3, 1], [-1, 1], [-2, 1], [-3, 1],
-    [1, 2], [2, 2], [3, 2], [-1, 2], [-2, 2], [-3, 2],
-    [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-3, -1],
-    [1, -2], [2, -2], [3, -2], [-1, -2], [-2, -2], [-3, -2]
-];
-const PUZZLE_MAP_TRIANGLE = [
-    [0, 0], [0, 1], [0, 2], [0, -1], [0, -2],
-    [1, 0], [2, 0], [3, 0], [4, 0], [-1, 0], [-2, 0], [-3, 0], [-4, 0],
-    [1, 1], [2, 1], [3, 1], [4, 1], [-1, 1], [-2, 1], [-3, 1], [-4, 1],
-    [1, 2], [2, 2], [3, 2], [-1, 2], [-2, 2], [-3, 2],
-    [1, -1], [2, -1], [3, -1], [4, -1], [-1, -1], [-2, -1], [-3, -1], [-4, -1],
-    [1, -2], [2, -2], [3, -2], [4, -2], [-1, -2], [-2, -2], [-3, -2], [-4, -2]
-];
+const PUZZLE_MAPS = {
+    TRIANGLE: { yPos: 320, data: [
+            [0, 0], [0, 1], [0, 2], [0, -1], [0, -2],
+            [1, 0], [2, 0], [3, 0], [4, 0], [-1, 0], [-2, 0], [-3, 0], [-4, 0],
+            [1, 1], [2, 1], [3, 1], [4, 1], [-1, 1], [-2, 1], [-3, 1], [-4, 1],
+            [1, 2], [2, 2], [3, 2], [-1, 2], [-2, 2], [-3, 2],
+            [1, -1], [2, -1], [3, -1], [4, -1], [-1, -1], [-2, -1], [-3, -1], [-4, -1],
+            [1, -2], [2, -2], [3, -2], [4, -2], [-1, -2], [-2, -2], [-3, -2], [-4, -2]
+        ] },
+    SQUARE: { yPos: 290, data: [
+            [0, 0], [0, -1], [0, -2], [0, 1], [0, 2], [0, 3],
+            [1, 0], [2, 0], [3, 0], [-1, 0], [-2, 0], [-3, 0],
+            [1, 1], [2, 1], [3, 1], [-1, 1], [-2, 1], [-3, 1],
+            [1, 2], [2, 2], [3, 2], [-1, 2], [-2, 2], [-3, 2],
+            [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-3, -1],
+            [1, -2], [2, -2], [3, -2], [-1, -2], [-2, -2], [-3, -2],
+            [1, 3], [2, 3], [3, 3], [-1, 3], [-2, 3], [-3, 3]
+        ] },
+    HEXAGON: { yPos: 320, data: [
+            [0, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
+            [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1],
+            [-3, 1], [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-1, -2],
+            [-1, 2], [-1, 3], [1, 2], [1, -2], [1, -3], [-3, 2], [-3, 3],
+            [3, -2], [3, -3], [-2, 2], [-2, 3], [2, -2], [2, -3]
+        ] }
+};
 const MinigameMaster = {
+    tt: "SQUARE",
+    blockersAmount: 5,
     mapTiles: {},
     mapTileKeys: [],
+    generationSteps: [],
+    blockersList: [],
+    startingPos: null,
     dummyBlockersList: [],
     puzzleIsReady: false,
-    createPuzzle: function (blockersAmount, tt, p) {
+    setUpPuzzle: function (blockersAmount, tt, p) {
         this.mapTiles = {};
-        let MAP_TILES_POS;
-        if (tt === "HEXAGON")
-            MAP_TILES_POS = PUZZLE_MAP_HEXAGON;
-        else if (tt === "SQUARE")
-            MAP_TILES_POS = PUZZLE_MAP_SQUARE;
-        else
-            MAP_TILES_POS = PUZZLE_MAP_TRIANGLE;
-        MAP_TILES_POS.forEach(pos => {
+        PUZZLE_MAPS[tt].data.forEach(pos => {
             if (!!this.mapTiles[posToKey(pos)])
-                throw "whattt";
-            let newTile;
-            if (tt === "HEXAGON")
-                newTile = new Hexagon_Tile(pos);
-            else if (tt === "SQUARE")
-                newTile = new Square_Tile(pos);
-            else
-                newTile = new Triangle_Tile(pos);
-            this.mapTiles[posToKey(pos)] = newTile;
+                throw "repeated in map";
+            this.mapTiles[posToKey(pos)] = getNewTile(pos, tt);
         });
         this.mapTileKeys = Object.keys(this.mapTiles);
+        this.tt = tt;
+        this.blockersAmount = blockersAmount;
+        this.mapTileKeys.forEach((tileKey) => {
+            const currentTile = this.mapTiles[tileKey];
+            const neighborKeys = Object.keys(currentTile.neighbors);
+            neighborKeys.forEach((nKey) => {
+                const nTile = this.mapTiles[nKey];
+                if (nTile) {
+                    currentTile.neighbors[nKey] = this.mapTiles[nKey];
+                    currentTile.edgeNeighbors[nKey] = false;
+                }
+            });
+        });
+    },
+    generatePuzzle: function (p) {
+        this.generationSteps = [];
+        this.blockersList = [];
+        this.generationSteps.push({
+            pos: keyToPos(this.mapTileKeys[p.floor(p.random(0, this.mapTileKeys.length))]), dir: null
+        });
         this.puzzleIsReady = true;
     },
     render: function (p) {
@@ -57,28 +71,68 @@ const MinigameMaster = {
             p.text("Loading", 300, 300);
             return;
         }
-        p.translate(300, 320);
+        p.translate(300, PUZZLE_MAPS[this.tt].yPos);
         p.stroke(255);
         p.noFill();
         this.mapTileKeys.forEach((tileKey) => {
             renderTile(p, this.mapTiles[tileKey]);
         });
+        p.stroke(255, 0, 0);
+        this.mapTileKeys.forEach((tileKey) => {
+            const tile = this.mapTiles[tileKey];
+            if (p.mouseIsPressed && p.dist(p.mouseX, p.mouseY, tile.renderPos[0] + 300, tile.renderPos[1] + PUZZLE_MAPS[this.tt].yPos) < 30) {
+                const yellowTiles = getAllTilesInDir(tile, [0, 1], [1, 0]);
+                yellowTiles.forEach((yt) => renderTile(p, yt));
+            }
+        });
     }
 };
+function getAllTilesInDir(currentTile, vec1, vec2) {
+    const tilesList = [];
+    while (true) {
+        const vecKey1 = posToKey([
+            currentTile.pos[0] + vec1[0],
+            currentTile.pos[1] + vec1[1]
+        ]);
+        let nextTile = currentTile.neighbors[vecKey1];
+        if (currentTile.edgeNeighbors[vecKey1])
+            break;
+        if (!nextTile && vec2 && vec2[1] === 0) {
+            const vecKey2 = posToKey([
+                currentTile.pos[0] + vec2[0],
+                currentTile.pos[1] + vec2[1]
+            ]);
+            nextTile = currentTile.neighbors[vecKey2];
+        }
+        if (!nextTile)
+            break;
+        const hasBlocker = MinigameMaster.blockersList.some((b) => {
+            return b.pos[0] === nextTile.pos[0] && b.pos[1] === nextTile.pos[1];
+        });
+        if (hasBlocker)
+            break;
+        tilesList.push(nextTile);
+        currentTile = nextTile;
+    }
+    return tilesList;
+}
 const sketch = (p) => {
     p.setup = () => {
         p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(20);
-        MinigameMaster.createPuzzle(5, "TRIANGLE" || "SQUARE" || "HEXAGON", p);
+        MinigameMaster.setUpPuzzle(5, "TRIANGLE" || "SQUARE" || "HEXAGON", p);
     };
     p.draw = () => {
         p.push();
         p.background(20);
         p.stroke(0);
         p.noFill();
-        MinigameMaster.render(p);
+        if (MinigameMaster.puzzleIsReady)
+            MinigameMaster.render(p);
+        else
+            MinigameMaster.generatePuzzle(p);
         p.pop();
     };
 };
@@ -90,7 +144,7 @@ window.onload = () => {
     new p5(sketch, canvasDiv);
 };
 const SCALINGS = {
-    SQUARE: 80.0, TRIANGLE: 100.0, HEXAGON: 50.0
+    SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3) / 2,
@@ -103,14 +157,17 @@ class Square_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
+        this.edgeNeighbors = {};
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
         [[1, 0], [0, 1], [-1, 0], [0, -1]].forEach(vec => {
-            this.neighbors[posToKey([
+            const nKey = posToKey([
                 x + vec[0],
                 y + vec[1]
-            ])] = null;
+            ]);
+            this.neighbors[nKey] = null;
+            this.edgeNeighbors[nKey] = true;
         });
         this.renderPos = [
             x * SCALINGS.SQUARE,
@@ -131,14 +188,17 @@ class Hexagon_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
+        this.edgeNeighbors = {};
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
         [[1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]].forEach(vec => {
-            this.neighbors[posToKey([
+            const nKey = posToKey([
                 x + vec[0],
                 y + vec[1]
-            ])] = null;
+            ]);
+            this.neighbors[nKey] = null;
+            this.edgeNeighbors[nKey] = true;
         });
         this.renderPos = [
             x * SCALINGS.HEXAGON * 3 / 2,
@@ -161,6 +221,7 @@ class Triangle_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
+        this.edgeNeighbors = {};
         this.verticesList = [];
         this.isUpward = false;
         const [x, y] = pos;
@@ -172,10 +233,12 @@ class Triangle_Tile {
         else
             vecList = [[1, 0], [-1, 0], [0, -1]];
         vecList.forEach(vec => {
-            this.neighbors[posToKey([
+            const nKey = posToKey([
                 x + vec[0],
                 y + vec[1]
-            ])] = null;
+            ]);
+            this.neighbors[nKey] = null;
+            this.edgeNeighbors[nKey] = true;
         });
         this.renderPos = [
             x * SCALINGS.TRIANGLE / 2,
@@ -209,6 +272,13 @@ function renderTile(p, tile) {
     p.fill("white");
     p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
     p.pop();
+}
+function getNewTile(pos, tt) {
+    if (tt === "HEXAGON")
+        return new Hexagon_Tile(pos);
+    if (tt === "SQUARE")
+        return new Square_Tile(pos);
+    return new Triangle_Tile(pos);
 }
 function posToKey(pos) {
     return `${pos[0]},${pos[1]}`;
