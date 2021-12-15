@@ -1,5 +1,12 @@
 const PUZZLE_MAPS = {
-    TRIANGLE: { yPos: 320, data: [
+    TRIANGLE: { yPos: 320, dirVectors: [
+            [[0, 1], [1, 0]],
+            [[0, 1], [-1, 0]],
+            [[0, -1], [1, 0]],
+            [[0, -1], [-1, 0]],
+            [[1, 0]],
+            [[-1, 0]]
+        ], data: [
             [0, 0], [0, 1], [0, 2], [0, -1], [0, -2],
             [1, 0], [2, 0], [3, 0], [4, 0], [-1, 0], [-2, 0], [-3, 0], [-4, 0],
             [1, 1], [2, 1], [3, 1], [4, 1], [-1, 1], [-2, 1], [-3, 1], [-4, 1],
@@ -7,7 +14,7 @@ const PUZZLE_MAPS = {
             [1, -1], [2, -1], [3, -1], [4, -1], [-1, -1], [-2, -1], [-3, -1], [-4, -1],
             [1, -2], [2, -2], [3, -2], [4, -2], [-1, -2], [-2, -2], [-3, -2], [-4, -2]
         ] },
-    SQUARE: { yPos: 290, data: [
+    SQUARE: { yPos: 290, dirVectors: [], data: [
             [0, 0], [0, -1], [0, -2], [0, 1], [0, 2], [0, 3],
             [1, 0], [2, 0], [3, 0], [-1, 0], [-2, 0], [-3, 0],
             [1, 1], [2, 1], [3, 1], [-1, 1], [-2, 1], [-3, 1],
@@ -16,7 +23,7 @@ const PUZZLE_MAPS = {
             [1, -2], [2, -2], [3, -2], [-1, -2], [-2, -2], [-3, -2],
             [1, 3], [2, 3], [3, 3], [-1, 3], [-2, 3], [-3, 3]
         ] },
-    HEXAGON: { yPos: 320, data: [
+    HEXAGON: { yPos: 320, dirVectors: [], data: [
             [0, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
             [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1],
             [-3, 1], [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-1, -2],
@@ -46,12 +53,12 @@ const MinigameMaster = {
         this.blockersAmount = blockersAmount;
         this.mapTileKeys.forEach((tileKey) => {
             const currentTile = this.mapTiles[tileKey];
-            const neighborKeys = Object.keys(currentTile.neighbors);
-            neighborKeys.forEach((nKey) => {
+            Object.keys(currentTile.neighbors).forEach((nKey) => {
                 const nTile = this.mapTiles[nKey];
                 if (nTile) {
-                    currentTile.neighbors[nKey] = this.mapTiles[nKey];
-                    currentTile.edgeNeighbors[nKey] = false;
+                    currentTile.neighbors[nKey] = {
+                        tile: this.mapTiles[nKey], isEdge: false, isWalled: false
+                    };
                 }
             });
         });
@@ -77,44 +84,70 @@ const MinigameMaster = {
         this.mapTileKeys.forEach((tileKey) => {
             renderTile(p, this.mapTiles[tileKey]);
         });
-        p.stroke(255, 0, 0);
+        p.frameRate(2);
         this.mapTileKeys.forEach((tileKey) => {
             const tile = this.mapTiles[tileKey];
             if (p.mouseIsPressed && p.dist(p.mouseX, p.mouseY, tile.renderPos[0] + 300, tile.renderPos[1] + PUZZLE_MAPS[this.tt].yPos) < 30) {
-                const yellowTiles = getAllTilesInDir(tile, [0, 1], [1, 0]);
-                yellowTiles.forEach((yt) => renderTile(p, yt));
+                const [vec1, vec2] = PUZZLE_MAPS[this.tt].dirVectors[p.floor(p.frameCount % 6)];
+                const slideInfo = getAllTilesInDir(tile, vec1, vec2);
+                p.stroke(255, 0, 0);
+                slideInfo.tilesList.forEach((yt) => renderTile(p, yt));
+                p.stroke(255, 255, 0);
+                if (slideInfo.hitEdgeTile)
+                    renderTile(p, slideInfo.hitEdgeTile);
             }
         });
     }
 };
 function getAllTilesInDir(currentTile, vec1, vec2) {
-    const tilesList = [];
+    const result = {
+        tilesList: [],
+        hitBlocker: null,
+        hitEdgeTile: null
+    };
     while (true) {
-        const vecKey1 = posToKey([
+        const vec1Pos = [
             currentTile.pos[0] + vec1[0],
             currentTile.pos[1] + vec1[1]
-        ]);
-        let nextTile = currentTile.neighbors[vecKey1];
-        if (currentTile.edgeNeighbors[vecKey1])
+        ];
+        let nextNeighbor = currentTile.neighbors[posToKey(vec1Pos)];
+        if (nextNeighbor && nextNeighbor.isEdge) {
+            result.hitEdgeTile = getEdgeNeighborTile(vec1Pos);
             break;
-        if (!nextTile && vec2 && vec2[1] === 0) {
-            const vecKey2 = posToKey([
+        }
+        const vec1TileNotExist = !nextNeighbor || !nextNeighbor.tile;
+        const vec2IsProvided = vec2 && vec2[1] === 0;
+        if (vec1TileNotExist && vec2IsProvided) {
+            const vec2Pos = [
                 currentTile.pos[0] + vec2[0],
                 currentTile.pos[1] + vec2[1]
-            ]);
-            nextTile = currentTile.neighbors[vecKey2];
+            ];
+            nextNeighbor = currentTile.neighbors[posToKey(vec2Pos)];
+            if (nextNeighbor && nextNeighbor.isEdge) {
+                result.hitEdgeTile = getEdgeNeighborTile(vec2Pos);
+                break;
+            }
         }
-        if (!nextTile)
+        if (!nextNeighbor || !nextNeighbor.tile)
             break;
         const hasBlocker = MinigameMaster.blockersList.some((b) => {
-            return b.pos[0] === nextTile.pos[0] && b.pos[1] === nextTile.pos[1];
+            const [x, y] = nextNeighbor.tile.pos;
+            if (b.pos[0] === x && b.pos[1] === y) {
+                result.hitBlocker = b;
+                return true;
+            }
+            return false;
         });
         if (hasBlocker)
             break;
-        tilesList.push(nextTile);
-        currentTile = nextTile;
+        result.tilesList.push(nextNeighbor.tile);
+        currentTile = nextNeighbor.tile;
     }
-    return tilesList;
+    return result;
+}
+function getEdgeNeighborTile(pos) {
+    return null;
+    return getNewTile(pos, MinigameMaster.tt);
 }
 const sketch = (p) => {
     p.setup = () => {
@@ -157,18 +190,10 @@ class Square_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
-        this.edgeNeighbors = {};
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
-        [[1, 0], [0, 1], [-1, 0], [0, -1]].forEach(vec => {
-            const nKey = posToKey([
-                x + vec[0],
-                y + vec[1]
-            ]);
-            this.neighbors[nKey] = null;
-            this.edgeNeighbors[nKey] = true;
-        });
+        setUpNeighbors(this, [[1, 0], [0, 1], [-1, 0], [0, -1]]);
         this.renderPos = [
             x * SCALINGS.SQUARE,
             y * SCALINGS.SQUARE,
@@ -188,18 +213,10 @@ class Hexagon_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
-        this.edgeNeighbors = {};
         this.verticesList = [];
         const [x, y] = pos;
         this.pos = [x, y];
-        [[1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]].forEach(vec => {
-            const nKey = posToKey([
-                x + vec[0],
-                y + vec[1]
-            ]);
-            this.neighbors[nKey] = null;
-            this.edgeNeighbors[nKey] = true;
-        });
+        setUpNeighbors(this, [[1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]]);
         this.renderPos = [
             x * SCALINGS.HEXAGON * 3 / 2,
             y * CONSTANTS.HEXAGON_HALF_SQRT_3 * 2 +
@@ -221,7 +238,6 @@ class Triangle_Tile {
         this.pos = [0, 0];
         this.renderPos = [0, 0];
         this.neighbors = {};
-        this.edgeNeighbors = {};
         this.verticesList = [];
         this.isUpward = false;
         const [x, y] = pos;
@@ -232,14 +248,7 @@ class Triangle_Tile {
             vecList = [[1, 0], [0, 1], [-1, 0]];
         else
             vecList = [[1, 0], [-1, 0], [0, -1]];
-        vecList.forEach(vec => {
-            const nKey = posToKey([
-                x + vec[0],
-                y + vec[1]
-            ]);
-            this.neighbors[nKey] = null;
-            this.edgeNeighbors[nKey] = true;
-        });
+        setUpNeighbors(this, vecList);
         this.renderPos = [
             x * SCALINGS.TRIANGLE / 2,
             y * CONSTANTS.TRIANGLE_HEIGHT
@@ -272,6 +281,17 @@ function renderTile(p, tile) {
     p.fill("white");
     p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
     p.pop();
+}
+function setUpNeighbors(tile, vectorsList) {
+    vectorsList.forEach(vec => {
+        const nKey = posToKey([
+            tile.pos[0] + vec[0],
+            tile.pos[1] + vec[1]
+        ]);
+        tile.neighbors[nKey] = {
+            tile: null, isEdge: true, isWalled: false
+        };
+    });
 }
 function getNewTile(pos, tt) {
     if (tt === "HEXAGON")

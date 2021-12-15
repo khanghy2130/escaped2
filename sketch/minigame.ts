@@ -1,7 +1,14 @@
 const PUZZLE_MAPS: {
-    [keys: string]: {yPos: number, data: Position2D[]}
+    [keys: string]: {yPos: number, dirVectors: Position2D[][], data: Position2D[]}
 } = {
-    TRIANGLE: {yPos: 320, data:[
+    TRIANGLE: {yPos: 320, dirVectors: [
+        [[0,1],[1,0]],
+        [[0,1],[-1,0]],
+        [[0,-1],[1,0]],
+        [[0,-1],[-1,0]],
+        [[1,0]],
+        [[-1,0]]
+    ], data:[
         [0,0], [0,1], [0,2], [0,-1], [0,-2],
         [1,0], [2,0], [3,0], [4,0], [-1,0], [-2,0], [-3,0], [-4,0],
         [1,1], [2,1], [3,1], [4,1], [-1,1], [-2,1], [-3,1], [-4,1],
@@ -9,7 +16,9 @@ const PUZZLE_MAPS: {
         [1,-1], [2,-1], [3,-1], [4,-1], [-1,-1], [-2,-1], [-3,-1], [-4,-1],
         [1,-2], [2,-2], [3,-2], [4,-2], [-1,-2], [-2,-2], [-3,-2], [-4,-2]
     ]}, // 43
-    SQUARE: {yPos: 290, data:[
+    SQUARE: {yPos: 290, dirVectors: [
+        
+    ], data:[
         [0,0], [0,-1], [0,-2], [0,1], [0,2], [0,3],
         [1,0], [2,0], [3,0], [-1,0], [-2,0], [-3,0],
         [1,1], [2,1], [3,1], [-1,1], [-2,1], [-3,1],
@@ -18,7 +27,9 @@ const PUZZLE_MAPS: {
         [1,-2], [2,-2], [3,-2], [-1,-2], [-2,-2], [-3,-2],
         [1,3], [2,3], [3,3], [-1,3], [-2,3], [-3,3]
     ]}, // 42
-    HEXAGON: {yPos: 320, data:[
+    HEXAGON: {yPos: 320, dirVectors: [
+        
+    ], data:[
         [0,0], [0,1], [0,2], [0,-1], [0,-2], [1,0], [2,0], [3,0],
         [-1,0], [-2,0], [-3,0], [1,1], [2,1], [-1,1], [-2,1],
         [-3,1], [1,-1], [2,-1], [3,-1], [-1,-1], [-2,-1], [-1,-2],
@@ -77,12 +88,12 @@ const MinigameMaster: MM_TYPE = {
         // connect neighbors
         this.mapTileKeys.forEach((tileKey: string) => {
             const currentTile = this.mapTiles[tileKey];
-            const neighborKeys = Object.keys(currentTile.neighbors);
-            neighborKeys.forEach((nKey: string) => {
+            Object.keys(currentTile.neighbors).forEach((nKey: string) => {
                 const nTile: Tile = this.mapTiles[nKey];
-                if (nTile){ // if exists
-                    currentTile.neighbors[nKey] = this.mapTiles[nKey];
-                    currentTile.edgeNeighbors[nKey] = false;
+                if (nTile){ // if exists, modify current neighbor object
+                    currentTile.neighbors[nKey] = {
+                        tile: this.mapTiles[nKey], isEdge: false, isWalled: false
+                    };
                 }
             });
         });
@@ -123,16 +134,22 @@ const MinigameMaster: MM_TYPE = {
         this.mapTileKeys.forEach((tileKey: string) => {
             renderTile(p, this.mapTiles[tileKey]);
         });
-
+        p.frameRate(2);
         ///////////// test
-        p.stroke(255,0,0);
+        
         this.mapTileKeys.forEach((tileKey: string) => {
-        const tile: Tile = this.mapTiles[tileKey];
+            const tile: Tile = this.mapTiles[tileKey];
             if (p.mouseIsPressed && p.dist(
                 p.mouseX,p.mouseY,tile.renderPos[0] + 300, tile.renderPos[1] + PUZZLE_MAPS[this.tt].yPos
             ) < 30){
-                const yellowTiles: Tile[] = getAllTilesInDir(tile, [0,1], [1,0]);
-                yellowTiles.forEach((yt:Tile) => renderTile(p, yt));
+                const [vec1, vec2] = PUZZLE_MAPS[this.tt].dirVectors[p.floor(p.frameCount % 6)]
+                const slideInfo: SlideInfo = getSlideInfo(tile, vec1, vec2);
+                // all pos ahead
+                p.stroke(255,0,0);
+                slideInfo.tilesList.forEach((yt:Tile) => renderTile(p, yt));
+                // out of bound tile
+                p.stroke(255,255,0);
+                if (slideInfo.hitEdgeTile) renderTile(p, slideInfo.hitEdgeTile);
             }
         });
     }
@@ -141,37 +158,69 @@ const MinigameMaster: MM_TYPE = {
 
 // stops at edge or has blocker
 // triangle if moving diagonally: vec1 is vertical, vec2 is horizontal
-function getAllTilesInDir(currentTile: Tile, vec1: Position2D, vec2?: Position2D): Tile[]{
-    const tilesList: Tile[] = [];
+interface SlideInfo {tilesList: Tile[], hitBlocker: BLOCKER, hitEdgeTile: Tile}
+function getSlideInfo(
+    currentTile: Tile, vec1: Position2D, vec2?: Position2D
+): SlideInfo {
+    const result: SlideInfo = {
+        tilesList: [],
+        hitBlocker: null,
+        hitEdgeTile: null
+    };
     while (true){
-        // vecKey1
-        const vecKey1 = posToKey([
+        // vec1
+        const vec1Pos: Position2D = [
             currentTile.pos[0] + vec1[0],
             currentTile.pos[1] + vec1[1]
-        ]);
-        let nextTile: Tile | null = currentTile.neighbors[vecKey1];
+        ];
+        let nextNeighbor: NeighborObject = currentTile.neighbors[posToKey(vec1Pos)];
+        
         // if is edge then quit
-        if (currentTile.edgeNeighbors[vecKey1]) break;
+        if (nextNeighbor && nextNeighbor.isEdge) {
+            result.hitEdgeTile = getEdgeNeighborTile(vec1Pos); 
+            break;
+        }
 
         // if vec1 tile doesn't exist && vec2 is provided && vec2 is horizonal only
-        if (!nextTile && vec2 && vec2[1] === 0) {
-            const vecKey2 = posToKey([
+        const vec1TileNotExist: boolean = !nextNeighbor || !nextNeighbor.tile;
+        const vec2IsProvided: boolean = vec2 && vec2[1] === 0;
+        
+        if (vec1TileNotExist && vec2IsProvided) {
+            const vec2Pos: Position2D = [
                 currentTile.pos[0] + vec2[0],
                 currentTile.pos[1] + vec2[1]
-            ]);
-            nextTile = currentTile.neighbors[vecKey2];
+            ];
+            nextNeighbor = currentTile.neighbors[posToKey(vec2Pos)];
+            
+            // if is edge then quit
+            if (nextNeighbor && nextNeighbor.isEdge) {
+                result.hitEdgeTile = getEdgeNeighborTile(vec2Pos); 
+                break;
+            }
         }
+        
         // if vecKey2 tile also doesn't exist then quit
-        if (!nextTile) break;
+        if (!nextNeighbor || !nextNeighbor.tile) break;
 
         // tile exists! check if has blocker
         const hasBlocker: boolean = MinigameMaster.blockersList.some((b: BLOCKER) => {
-            return b.pos[0] === nextTile.pos[0] && b.pos[1] === nextTile.pos[1];
+            const [x,y] = nextNeighbor.tile.pos;
+            if (b.pos[0] === x && b.pos[1] === y) {
+                result.hitBlocker = b;
+                return true;
+            }
+            return false;
         });
         if (hasBlocker) break;
 
-        tilesList.push(nextTile); // this tile is good to be added
-        currentTile = nextTile; // goes on
+        result.tilesList.push(nextNeighbor.tile); // this tile is good to be added
+        currentTile = nextNeighbor.tile; // goes on
     }
-    return tilesList;
+    return result;
+}
+
+function getEdgeNeighborTile(pos: Position2D): Tile {
+    return null; ////// 
+    // if (!MinigameMaster.puzzleIsReady) return null; // is generating
+    return getNewTile(pos, MinigameMaster.tt);
 }

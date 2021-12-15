@@ -18,11 +18,13 @@ const CONSTANTS = {
 type Tile_Type = "TRIANGLE" | "SQUARE" | "HEXAGON";
 type Position2D = [number, number];
 
+interface NeighborObject {
+    tile: Tile, isEdge: boolean, isWalled: boolean
+}
 interface Tile {
 	pos: Position2D;
 	renderPos: Position2D;
-	neighbors: {[keys: string]: Tile | null};
-    edgeNeighbors: {[keys: string]: boolean};
+	neighbors: {[keys: string]: NeighborObject};
 	verticesList: Position2D[];
 
     isUpward?: boolean; // triangle only
@@ -32,21 +34,13 @@ interface Tile {
 class Square_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
-	neighbors: {[keys: string]: Tile | null} = {};
-    edgeNeighbors: {[keys: string]: boolean} = {};
+	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
-        [[1,0], [0,1], [-1,0], [0,-1]].forEach(vec => {
-            const nKey: string = posToKey([
-				x + vec[0],
-				y + vec[1]
-			]);
-			this.neighbors[nKey] = null;
-			this.edgeNeighbors[nKey] = true;
-		});
+        setUpNeighbors(this, [[1,0], [0,1], [-1,0], [0,-1]]);
 		this.renderPos = [
 			x * SCALINGS.SQUARE, 
 			y * SCALINGS.SQUARE, 
@@ -66,21 +60,13 @@ class Square_Tile implements Tile {
 class Hexagon_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
-	neighbors: {[keys: string]: Tile | null} = {};
-    edgeNeighbors: {[keys: string]: boolean} = {};
+	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
         const [x, y] = pos;
 		this.pos = [x, y];
-        [[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]].forEach(vec => {
-			const nKey: string = posToKey([
-				x + vec[0],
-				y + vec[1]
-			]);
-			this.neighbors[nKey] = null;
-			this.edgeNeighbors[nKey] = true;
-		});
+        setUpNeighbors(this, [[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]]);
 		this.renderPos = [
 			x * SCALINGS.HEXAGON * 3/2,
 			y * CONSTANTS.HEXAGON_HALF_SQRT_3 * 2 + 
@@ -102,8 +88,7 @@ class Hexagon_Tile implements Tile {
 class Triangle_Tile implements Tile {
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
-	neighbors: {[keys: string]: Tile | null} = {};
-    edgeNeighbors: {[keys: string]: boolean} = {};
+	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
     isUpward: boolean = false;
 
@@ -111,17 +96,11 @@ class Triangle_Tile implements Tile {
         const [x, y] = pos;
 		this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
+
         let vecList: Position2D[];
         if (this.isUpward) vecList = [[1,0], [0,1], [-1,0]];
         else vecList = [[1,0], [-1,0], [0,-1]];
-        vecList.forEach(vec => {
-			const nKey: string = posToKey([
-				x + vec[0],
-				y + vec[1]
-			]);
-			this.neighbors[nKey] = null;
-			this.edgeNeighbors[nKey] = true;
-		});
+        setUpNeighbors(this, vecList);
 
 		this.renderPos = [
 			x * SCALINGS.TRIANGLE/2, 
@@ -165,6 +144,17 @@ function renderTile(p: p5, tile: Tile): void {
 
 
 // HELPER FUNCTIONS
+function setUpNeighbors(tile: Tile,vectorsList: Position2D[]):void{
+    vectorsList.forEach(vec => {
+        const nKey: string = posToKey([
+            tile.pos[0] + vec[0],
+            tile.pos[1] + vec[1]
+        ]);
+        tile.neighbors[nKey] = {
+            tile: null, isEdge: true, isWalled: false
+        };
+    });
+}
 function getNewTile(pos: Position2D, tt: Tile_Type): Tile{
     if (tt === "HEXAGON") return new Hexagon_Tile(pos);
     if (tt === "SQUARE") return new Square_Tile(pos);
