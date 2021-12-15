@@ -10,8 +10,8 @@ const sketch = (p: p5) => {
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(20);
 
-
-        MinigameMaster.setUpPuzzle(5, "TRIANGLE" || "SQUARE" || "HEXAGON", p);
+        const l: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
+        MinigameMaster.setUpPuzzle(7, l[p.floor(p.random(0,3))] , p);
 	};
 
 	p.draw = () => {
