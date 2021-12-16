@@ -8,7 +8,7 @@ const sketch = (p: p5) => {
 		p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(20);
+        p.textFont("monospace");
 
         const l: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
         MinigameMaster.setUpPuzzle(7, l[p.floor(p.random(0,3))] , p);
@@ -16,10 +16,7 @@ const sketch = (p: p5) => {
 
 	p.draw = () => {
         p.push();
-		p.background(20);
-		
-		p.stroke(0);
-		p.noFill();
+		p.background(MAIN_THEME.DARK);
 
         
         // rendering minigame scene

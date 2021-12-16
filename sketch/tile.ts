@@ -1,5 +1,8 @@
+const MAIN_THEME: {LIGHT: number, DARK: number} = {
+    LIGHT: 240, DARK: 30
+};
 const SCALINGS = {
-	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
+	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3)/2,
@@ -135,8 +138,9 @@ function renderTile(p: p5, tile: Tile): void {
     tile.verticesList.forEach(vPos => p.vertex(vPos[0],vPos[1]));
 	p.endShape(p.CLOSE);
 
+    ////////////////
     p.push();
-    p.fill("white");
+    p.fill(MAIN_THEME.LIGHT);
     p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
     p.pop();
 }

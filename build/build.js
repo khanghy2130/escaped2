@@ -30,7 +30,7 @@ const PUZZLE_MAPS = {
             [1, -2], [2, -2], [3, -2], [-1, -2], [-2, -2], [-3, -2],
             [1, 3], [2, 3], [3, 3], [-1, 3], [-2, 3], [-3, 3]
         ] },
-    HEXAGON: { yPos: 320,
+    HEXAGON: { yPos: 300,
         dirVectors: [
             [[1, 0]],
             [[0, 1]],
@@ -39,11 +39,11 @@ const PUZZLE_MAPS = {
             [[-1, 1]],
             [[1, -1]]
         ], data: [
-            [0, 0], [0, 1], [0, 2], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
-            [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1],
+            [0, 0], [0, 1], [0, 2], [0, 3], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
+            [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1], [3, 1],
             [-3, 1], [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-1, -2],
-            [-1, 2], [-1, 3], [1, 2], [1, -2], [1, -3], [-3, 2], [-3, 3],
-            [3, -2], [3, -3], [-2, 2], [-2, 3], [2, -2], [2, -3]
+            [-1, 2], [-1, 3], [1, 2], [1, -2], [1, -3], [-3, 2], [-3, 3], [-3, 4],
+            [3, -2], [3, -3], [-2, 2], [-2, 3], [2, -2], [2, -3], [-2, 4], [2, 2]
         ] }
 };
 const MinigameMaster = {
@@ -57,38 +57,37 @@ const MinigameMaster = {
     dummyBlockersList: [],
     puzzleIsReady: false,
     setUpPuzzle: function (blockersAmount, tt, p) {
-        this.mapTiles = {};
+        MinigameMaster.mapTiles = {};
         PUZZLE_MAPS[tt].data.forEach(pos => {
-            if (!!this.mapTiles[posToKey(pos)])
+            if (!!MinigameMaster.mapTiles[posToKey(pos)])
                 throw "repeated in map";
-            this.mapTiles[posToKey(pos)] = getNewTile(pos, tt);
+            MinigameMaster.mapTiles[posToKey(pos)] = getNewTile(pos, tt);
         });
-        this.mapTileKeys = Object.keys(this.mapTiles);
-        this.tt = tt;
-        this.blockersAmount = blockersAmount;
-        this.mapTileKeys.forEach((tileKey) => {
-            const currentTile = this.mapTiles[tileKey];
+        MinigameMaster.mapTileKeys = Object.keys(MinigameMaster.mapTiles);
+        MinigameMaster.tt = tt;
+        MinigameMaster.blockersAmount = blockersAmount;
+        MinigameMaster.mapTileKeys.forEach((tileKey) => {
+            const currentTile = MinigameMaster.mapTiles[tileKey];
             Object.keys(currentTile.neighbors).forEach((nKey) => {
-                const nTile = this.mapTiles[nKey];
+                const nTile = MinigameMaster.mapTiles[nKey];
                 if (nTile) {
                     currentTile.neighbors[nKey] = {
-                        tile: this.mapTiles[nKey], isEdge: false, isWalled: false
+                        tile: MinigameMaster.mapTiles[nKey], isEdge: false, isWalled: false
                     };
                 }
             });
         });
     },
     generatePuzzle: function (p) {
-        this.generationSteps = [];
-        this.blockersList = [];
-        this.generationSteps.push({
-            tile: this.mapTiles[this.mapTileKeys[p.floor(p.random(0, this.mapTileKeys.length))]],
-            vec: null,
+        MinigameMaster.generationSteps = [];
+        MinigameMaster.blockersList = [];
+        MinigameMaster.generationSteps.push({
+            tile: MinigameMaster.mapTiles[MinigameMaster.mapTileKeys[p.floor(p.random(0, MinigameMaster.mapTileKeys.length))]],
             blocker: null
         });
-        while (this.blockersList.length < this.blockersAmount) {
-            const currentPosTile = this.generationSteps[this.generationSteps.length - 1].tile;
-            const dirVectors = PUZZLE_MAPS[this.tt].dirVectors.slice();
+        while (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount) {
+            const currentPosTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
+            const dirVectors = PUZZLE_MAPS[MinigameMaster.tt].dirVectors.slice();
             let pickedStep = null;
             while (dirVectors.length > 0) {
                 const chosenVector = dirVectors.splice(p.floor(p.random(0, dirVectors.length)), 1)[0];
@@ -96,67 +95,77 @@ const MinigameMaster = {
                 if (slideInfo.tilesList.length === 0)
                     continue;
                 const heavyBlocker = getHeavyBlocker(currentPosTile, chosenVector);
+                const mediumBlocker = getMediumBlocker(currentPosTile);
                 const lightBlocker = getLightBlocker(slideInfo);
                 const possibleMoves = [];
                 if (heavyBlocker) {
                     slideInfo.tilesList.forEach(tile => {
                         possibleMoves.push({
-                            tile: tile, vec: chosenVector, blocker: heavyBlocker
+                            tile: tile, blocker: heavyBlocker
+                        });
+                    });
+                }
+                if (mediumBlocker) {
+                    slideInfo.tilesList.slice(1).forEach(tile => {
+                        possibleMoves.push({
+                            tile: tile, blocker: mediumBlocker
                         });
                     });
                 }
                 if (lightBlocker) {
                     slideInfo.tilesList.slice(2).forEach(tile => {
                         possibleMoves.push({
-                            tile: tile, vec: chosenVector, blocker: lightBlocker
+                            tile: tile, blocker: lightBlocker
                         });
                     });
                 }
                 if (possibleMoves.length === 0)
                     continue;
-                pickedStep = possibleMoves[p.floor(p.random(0, possibleMoves.length))];
+                while (true) {
+                    pickedStep = possibleMoves[p.floor(p.random(0, possibleMoves.length))];
+                    const isNotLightBlocker = pickedStep.blocker.weight !== 1;
+                    if (isNotLightBlocker && p.random() < 0.5)
+                        continue;
+                    else
+                        break;
+                }
                 break;
             }
             if (pickedStep) {
-                this.generationSteps.push(pickedStep);
-                this.blockersList.push(pickedStep.blocker);
+                MinigameMaster.generationSteps.push(pickedStep);
+                MinigameMaster.blockersList.push(pickedStep.blocker);
             }
             else
                 break;
         }
-        if (this.blockersList.length < this.blockersAmount) {
-            this.puzzleIsReady = false;
+        if (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount) {
+            MinigameMaster.puzzleIsReady = false;
             console.log("failed");
         }
         else {
-            this.startingTile = this.generationSteps[this.generationSteps.length - 1].tile;
-            this.puzzleIsReady = true;
+            MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
+            MinigameMaster.puzzleIsReady = true;
             console.log("solution:");
-            this.generationSteps.forEach((s) => console.log(s.tile.pos));
+            MinigameMaster.generationSteps.forEach((s) => console.log(s.tile.pos));
         }
     },
     render: function (p) {
-        if (!this.puzzleIsReady) {
-            p.textSize(30);
-            p.fill(250);
-            p.text("Loading", 300, 300);
-            return;
-        }
-        p.translate(300, PUZZLE_MAPS[this.tt].yPos);
-        p.stroke(255);
+        p.translate(300, PUZZLE_MAPS[MinigameMaster.tt].yPos);
+        p.stroke(MAIN_THEME.LIGHT);
         p.noFill();
-        this.mapTileKeys.forEach((tileKey) => {
-            renderTile(p, this.mapTiles[tileKey]);
+        p.textSize(20);
+        MinigameMaster.mapTileKeys.forEach((tileKey) => {
+            renderTile(p, MinigameMaster.mapTiles[tileKey]);
         });
-        this.blockersList.forEach((b) => {
-            if (b.type === "HEAVY")
-                p.fill(0, 230, 0);
-            else
-                p.fill(0, 0, 230);
-            renderTile(p, b.tile);
-        });
-        p.fill(255, 0, 0);
+        p.fill(230, 0, 0);
         renderTile(p, MinigameMaster.startingTile);
+        p.textSize(30);
+        MinigameMaster.blockersList.forEach((b) => {
+            p.fill(MAIN_THEME.LIGHT);
+            renderTile(p, b.tile);
+            p.fill(MAIN_THEME.DARK);
+            p.text(b.weight, b.tile.renderPos[0], b.tile.renderPos[1]);
+        });
     }
 };
 function getHeavyBlocker(currentPosTile, chosenVector) {
@@ -167,32 +176,31 @@ function getHeavyBlocker(currentPosTile, chosenVector) {
     const targetPosTile = getSlideInfo(currentPosTile, oppositeVector[0], oppositeVector[1]).tilesList[0];
     if (!targetPosTile)
         return null;
-    const notEmpty = MinigameMaster.blockersList.some(b => {
-        return b.tile === targetPosTile;
-    });
-    if (notEmpty)
+    if (isAnythingAdjacent(targetPosTile))
         return null;
-    if (anyBlockerAdjacent(targetPosTile))
+    return { tile: targetPosTile, weight: 3 };
+}
+function getMediumBlocker(targetPosTile) {
+    if (isAnythingAdjacent(targetPosTile))
         return null;
-    return { tile: targetPosTile, type: "HEAVY" };
+    return { tile: targetPosTile, weight: 2 };
 }
 function getLightBlocker(slideInfo) {
     const targetPosTile = slideInfo.tilesList[0];
-    const notEmpty = MinigameMaster.blockersList.some(b => {
-        return b.tile === targetPosTile;
-    });
-    if (notEmpty)
+    if (isAnythingAdjacent(targetPosTile))
         return null;
-    if (anyBlockerAdjacent(targetPosTile))
-        return null;
-    return { tile: targetPosTile, type: "LIGHT" };
+    return { tile: targetPosTile, weight: 1 };
 }
-function anyBlockerAdjacent(targetPosTile) {
-    return Object.keys(targetPosTile.neighbors).some((nKey) => {
-        const nTile = targetPosTile.neighbors[nKey].tile;
-        return MinigameMaster.blockersList.some((b) => {
-            return nTile === b.tile;
+function isAnythingAdjacent(targetPosTile) {
+    const dangerTiles = Object.keys(targetPosTile.neighbors)
+        .map((nKey) => targetPosTile.neighbors[nKey].tile);
+    dangerTiles.push(targetPosTile);
+    return dangerTiles.some((dangerTile) => {
+        const hasBlocker = MinigameMaster.blockersList.some((b) => {
+            return dangerTile === b.tile;
         });
+        const hasTeleporter = false;
+        return hasBlocker || hasTeleporter;
     });
 }
 function getSlideInfo(currentTile, vec1, vec2) {
@@ -249,15 +257,13 @@ const sketch = (p) => {
         p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
-        p.textSize(20);
+        p.textFont("monospace");
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
         MinigameMaster.setUpPuzzle(7, l[p.floor(p.random(0, 3))], p);
     };
     p.draw = () => {
         p.push();
-        p.background(20);
-        p.stroke(0);
-        p.noFill();
+        p.background(MAIN_THEME.DARK);
         if (MinigameMaster.puzzleIsReady)
             MinigameMaster.render(p);
         else
@@ -272,8 +278,11 @@ window.onload = () => {
     };
     new p5(sketch, canvasDiv);
 };
+const MAIN_THEME = {
+    LIGHT: 240, DARK: 30
+};
 const SCALINGS = {
-    SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
+    SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3) / 2,
@@ -374,7 +383,7 @@ function renderTile(p, tile) {
     tile.verticesList.forEach(vPos => p.vertex(vPos[0], vPos[1]));
     p.endShape(p.CLOSE);
     p.push();
-    p.fill("white");
+    p.fill(MAIN_THEME.LIGHT);
     p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
     p.pop();
 }
