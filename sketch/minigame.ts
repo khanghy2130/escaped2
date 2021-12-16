@@ -16,7 +16,7 @@ const PUZZLE_MAPS: {[keys: string]: {
         [1,2], [2,2], [3,2], [-1,2], [-2,2], [-3,2],
         [1,-1], [2,-1], [3,-1], [4,-1], [-1,-1], [-2,-1], [-3,-1], [-4,-1],
         [1,-2], [2,-2], [3,-2], [4,-2], [-1,-2], [-2,-2], [-3,-2], [-4,-2]
-    ]}, // 43
+    ]}, 
     SQUARE: {yPos: 290, 
     dirVectors: [
         [[0,1]],
@@ -31,8 +31,8 @@ const PUZZLE_MAPS: {[keys: string]: {
         [1,-1], [2,-1], [3,-1], [-1,-1], [-2,-1], [-3,-1],
         [1,-2], [2,-2], [3,-2], [-1,-2], [-2,-2], [-3,-2],
         [1,3], [2,3], [3,3], [-1,3], [-2,3], [-3,3]
-    ]}, // 42
-    HEXAGON: {yPos: 300,
+    ]}, 
+    HEXAGON: {yPos: 310,
     dirVectors: [
         [[1,0]],
         [[0,1]],
@@ -45,14 +45,16 @@ const PUZZLE_MAPS: {[keys: string]: {
         [-1,0], [-2,0], [-3,0], [1,1], [2,1], [-1,1], [-2,1], [3,1],
         [-3,1], [1,-1], [2,-1], [3,-1], [-1,-1], [-2,-1], [-1,-2],
         [-1,2], [-1,3], [1,2], [1,-2], [1,-3], [-3,2], [-3,3], [-3,4],
-        [3,-2], [3,-3], [-2, 2], [-2, 3], [2,-2], [2,-3], [-2,4], [2,2]
-    ]} // 40
+        [3,-2], [3,-3], [-2, 2], [-2, 3], [2,-2], [2,-3], [-2,4], [2,2],
+        [-3,-1], [3,-4]
+    ]} 
 };
-const BLOCKER_COLORS: ([number,number,number])[] = [
+const PUZZLE_BLOCKER_COLORS: ([number,number,number])[] = [
     [0, 130, 210],
     [180, 50, 230],
     [230, 0, 80]
 ];
+const PUZZLE_DIFFICULTIES: number[] = [5, 7, 9];
 
 interface DUMMY_BLOCKER { renderPos: Position2D, rotation: number }
 interface BLOCKER {weight: 1|2|3, tile: Tile}
@@ -116,24 +118,6 @@ const MinigameMaster: MM_TYPE = {
                 }
             });
         });
-
-        // teleporters
-        const firstTeleporter: Tile = MinigameMaster.getRandomTile(p);
-        MinigameMaster.teleporters = [firstTeleporter, firstTeleporter]; // apply first teleporter for check
-        let secondTeleporter: Tile;
-        
-        while (true){
-            secondTeleporter = MinigameMaster.getRandomTile(p);
-            // reroll if the same as the first or near it
-            if (isAnythingAdjacent(secondTeleporter)) continue;
-            // reroll if on the same path as the first (check each direction > each tile)
-            if (PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs) => {
-                const slideInfo: SlideInfo = getSlideInfo(secondTeleporter, vecs, true);
-                return slideInfo.tilesList.some(t => t === firstTeleporter);
-            })) {continue;}
-            break;
-        }
-        MinigameMaster.teleporters[1] = secondTeleporter;
     },
 
     // if fail: puzzleIsReady = false; succeed => true
@@ -141,6 +125,39 @@ const MinigameMaster: MM_TYPE = {
         // reset previous puzzle data
         MinigameMaster.generationSteps = [];
         MinigameMaster.blockersList = [];
+
+        // teleporters (if not first difficulty)
+        if (MinigameMaster.blockersAmount === PUZZLE_DIFFICULTIES[0]){
+            MinigameMaster.teleporters = [null, null];
+        } else {
+            const firstTeleporter: Tile = MinigameMaster.getRandomTile(p);
+            MinigameMaster.teleporters = [firstTeleporter, firstTeleporter]; // apply first teleporter for check
+            let secondTeleporter: Tile;
+            
+            while (true){
+                secondTeleporter = MinigameMaster.getRandomTile(p);
+                // reroll if the same as the first or near it
+                if (isAnythingAdjacent(secondTeleporter)) continue;
+                // reroll if on the same path as the first (check each direction > each tile)
+                if (PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs) => {
+                    const slideInfo: SlideInfo = getSlideInfo(secondTeleporter, vecs, true);
+                    return slideInfo.tilesList.some(t => t === firstTeleporter);
+                })) {continue;}
+                break;
+            }
+            MinigameMaster.teleporters[1] = secondTeleporter;
+            // fail immediately if any teleporter on edge tile
+            const teleporterOnEdge: boolean = MinigameMaster.teleporters
+            .some(teleporterTile=>{
+                return Object.keys(teleporterTile.neighbors).some(nKey => {
+                    return teleporterTile.neighbors[nKey].isEdge;
+                });
+            });
+            if (teleporterOnEdge){
+                MinigameMaster.puzzleIsReady = false;
+                return;
+            }
+        }
 
         // make first step for generationSteps
         let newRandomTile: Tile;
@@ -177,42 +194,39 @@ const MinigameMaster: MM_TYPE = {
                 const possibleMoves: GenerationStep[] = [];
                 if (heavyBlocker){
                     // any pos ahead will do
-                    slideInfo.tilesList.forEach(tile=>{
-                        possibleMoves.push({
-                            tile: tile, blocker: heavyBlocker
-                        });
+                    slideInfo.tilesList.forEach((tile,index)=>{
+                        const step:  GenerationStep = {tile: tile, blocker: heavyBlocker};
+                        for (let i=0; i < index + 2; i++){ // +2 for a bit bias
+                            possibleMoves.push(step);
+                        }
                     });
                 }
                 if (mediumBlocker){
                     // any pos ahead will do, except the first 1
-                    slideInfo.tilesList.slice(1).forEach(tile=>{
-                        possibleMoves.push({
-                            tile: tile, blocker: mediumBlocker
-                        });
+                    slideInfo.tilesList.slice(1).forEach((tile,index)=>{
+                        const step:  GenerationStep = {tile: tile, blocker: mediumBlocker};
+                        for (let i=0; i < index + 1; i++){
+                            possibleMoves.push(step);
+                        }
                     });
                 }
-                if (lightBlocker){
+                if (lightBlocker){ // preferred
                     // any pos ahead will do, except the first 2
-                    slideInfo.tilesList.slice(2).forEach(tile=>{
-                        possibleMoves.push({
-                            tile: tile, blocker: lightBlocker
-                        });
+                    slideInfo.tilesList.slice(2).forEach((tile,index)=>{
+                        const step:  GenerationStep = {tile: tile, blocker: lightBlocker};
+                        for (let i=0; i < index + 1; i++){
+                            possibleMoves.push(step);
+                            // 50% chance to add more
+                            if (p.random() < 0.5) possibleMoves.push(step);
+                        }
                     });
                 }
 
                 // no possible move? continue to next dir
                 if (possibleMoves.length === 0) continue;
-
-                // picking a move (prefer to pick light blocker)
-                while (true){
-                    pickedStep = possibleMoves[
-                        p.floor(p.random(0, possibleMoves.length))
-                    ];
-                    const isNotLightBlocker: boolean = pickedStep.blocker.weight !== 1;
-                    // 50% to reroll if not light blocker
-                    if (isNotLightBlocker && p.random() < 0.5) continue;
-                    else break;
-                }
+                pickedStep = possibleMoves[
+                    p.floor(p.random(0, possibleMoves.length))
+                ];
                 break;
             }
 
@@ -227,7 +241,6 @@ const MinigameMaster: MM_TYPE = {
         // review generation
         if (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount){
             MinigameMaster.puzzleIsReady = false;
-            console.log("failed");
         } else { // success
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length-1].tile;
             MinigameMaster.puzzleIsReady = true;
@@ -259,33 +272,37 @@ const MinigameMaster: MM_TYPE = {
         });
 
         // renders teleporters
-        p.stroke(230, 230, 0);
-        p.strokeWeight(4);
-        p.noFill();
-        MinigameMaster.teleporters.forEach((teleporterTile: Tile)=>{
-            renderTransitionalTile({
-                p: p, tile: teleporterTile,
-                renderPos: null, scaleValue: 0.7, rotateValue: 0,
-                extraRender: null
+        if (MinigameMaster.teleporters[0]){
+            p.stroke(230, 230, 0);
+            p.strokeWeight(4);
+            p.noFill();
+            MinigameMaster.teleporters.forEach((teleporterTile: Tile)=>{
+                renderTransitionalTile({
+                    p: p, tile: teleporterTile,
+                    renderPos: null, scaleValue: 0.7, rotateValue: 0,
+                    extraRender: null
+                });
+                renderTransitionalTile({
+                    p: p, tile: teleporterTile,
+                    renderPos: null, scaleValue: 0.4, rotateValue: 0,
+                    extraRender: null
+                });
+                renderTransitionalTile({
+                    p: p, tile: teleporterTile,
+                    renderPos: null, scaleValue: 0.2, rotateValue: 0,
+                    extraRender: null
+                });
             });
-            renderTransitionalTile({
-                p: p, tile: teleporterTile,
-                renderPos: null, scaleValue: 0.4, rotateValue: 0,
-                extraRender: null
-            });
-            renderTransitionalTile({
-                p: p, tile: teleporterTile,
-                renderPos: null, scaleValue: 0.2, rotateValue: 0,
-                extraRender: null
-            });
-        });
+        }
+        
         
 
         // renders blockers
         p.textSize(36);
         p.noStroke();
         MinigameMaster.blockersList.forEach((b:BLOCKER) => {
-            p.fill(BLOCKER_COLORS[b.weight-1]);
+            const bColor: number[] = PUZZLE_BLOCKER_COLORS[b.weight-1];
+            p.fill(bColor[0], bColor[1], bColor[2]);
             renderTransitionalTile({
                 p: p, tile: b.tile,
                 renderPos: null, scaleValue: 0.8, rotateValue: 0,
@@ -374,9 +391,12 @@ function isAnythingAdjacent(targetPosTile: Tile): boolean {
 
 // stops at edge or has blocker
 // triangle if moving diagonally: vec1 is vertical, vec2 is horizontal
-interface SlideInfo {tilesList: Tile[], hitBlocker: BLOCKER, hitEdgeTile: Tile}
+interface SlideInfo {
+    tilesList: Tile[], hitBlocker: BLOCKER, hitEdgeTile: Tile
+}
 function getSlideInfo(
-    currentTile: Tile, vecs: Position2D[], countTeleporter?: boolean
+    currentTile: Tile, vecs: Position2D[], 
+    ignoreTelerporter?: boolean, ignoreBlocker?: boolean
 ): SlideInfo {
     const [vec1,vec2] = vecs;
     const result: SlideInfo = {
@@ -396,7 +416,7 @@ function getSlideInfo(
         
         // if is edge then quit
         if (nextNeighbor && nextNeighbor.isEdge) {
-            result.hitEdgeTile = getEdgeNeighborTile(vec1Pos); 
+            result.hitEdgeTile = createEdgeNeighborTile(vec1Pos); 
             break;
         }
 
@@ -413,7 +433,7 @@ function getSlideInfo(
             
             // if is edge then quit
             if (nextNeighbor && nextNeighbor.isEdge) {
-                result.hitEdgeTile = getEdgeNeighborTile(vec2Pos); 
+                result.hitEdgeTile = createEdgeNeighborTile(vec2Pos); 
                 break;
             }
         }
@@ -421,17 +441,19 @@ function getSlideInfo(
         // if vec2 tile also doesn't exist then quit
         if (!nextNeighbor || !nextNeighbor.tile) break;
 
-        // tile exists! check if has blocker
-        const hasBlocker: boolean = MinigameMaster.blockersList.some((b: BLOCKER) => {
-            if (b.tile === nextNeighbor.tile) {
-                result.hitBlocker = b;
-                return true;
-            }
-            return false;
-        });
-        if (hasBlocker) break;
+        // tile exists! check if has blocker (if not ignored)
+        if (!ignoreBlocker){
+            const hasBlocker: boolean = MinigameMaster.blockersList.some((b: BLOCKER) => {
+                if (b.tile === nextNeighbor.tile) {
+                    result.hitBlocker = b;
+                    return true;
+                }
+                return false;
+            });
+            if (hasBlocker) break;
+        }
 
-        if (!countTeleporter){ // apply teleporter rule?
+        if (!ignoreTelerporter){ // not ignore?
             // check if is teleporter
             const isFirstTeleporter: boolean = nextNeighbor.tile === MinigameMaster.teleporters[0];
             const isSecondTeleporter: boolean = nextNeighbor.tile === MinigameMaster.teleporters[1];
@@ -450,8 +472,7 @@ function getSlideInfo(
     return result;
 }
 
-function getEdgeNeighborTile(pos: Position2D): Tile {
-    return null; ////// 
-    // if (!MinigameMaster.puzzleIsReady) return null; // is generating
+function createEdgeNeighborTile(pos: Position2D): Tile {
+    if (!MinigameMaster.puzzleIsReady) return null; // is generating, no need to create
     return getNewTile(pos, MinigameMaster.tt);
 }
