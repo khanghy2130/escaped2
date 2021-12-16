@@ -148,6 +148,7 @@ CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
     vertex[1] -= CONSTANTS.TRIANGLE_HEIGHT - (2 * CONSTANTS.TRIANGLE_CENTER_Y);
 });
 
+interface GhostTrail {fillColor: number[], opacityValue: number}
 
 function renderTile(p: p5, tile: Tile): void {
 	p.beginShape();
@@ -182,8 +183,37 @@ function renderTransitionalTile(props: RenderTransitionalTileProps): void{
 }
 
 
+function renderPlayer(fillColor: number[], strokeColor: number[], props: RenderTransitionalTileProps): void{
+    const p: p5 = props.p, tile: Tile = props.tile;
+
+    p.fill(fillColor[0],fillColor[1],fillColor[2]);
+    p.noStroke();
+    props.extraRender = function(): void{ // renders lines
+        p.stroke(strokeColor[0],strokeColor[1],strokeColor[2]);
+        p.strokeWeight(5);
+        if (tile.tt === "HEXAGON"){
+            for (let i=0; i < 6; i++){
+                p.line(20,0,-20,0);
+                p.rotate(60);
+            }
+        } else if (tile.tt === "SQUARE"){
+            p.line(-15, -15, 15, 15);
+            p.line(15, -15, -15, 15);
+        } else {
+            for (let i=0; i < 3; i++){
+                p.line(0,0,0, -20);
+                p.rotate(120);
+            }
+        }
+    };
+    renderTransitionalTile(props);
+}
+
 
 // HELPER FUNCTIONS
+function getOppositeVectors(vecs: Position2D[]): Position2D[]{
+    return vecs.map(vec => [vec[0] * -1, vec[1] * -1]);
+}
 function setUpNeighbors(tile: Tile,vectorsList: Position2D[]):void{
     vectorsList.forEach(vec => {
         const nKey: string = posToKey([

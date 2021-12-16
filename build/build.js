@@ -7,7 +7,9 @@ const PUZZLE_MAPS = {
             [[0, -1], [-1, 0]],
             [[1, 0]],
             [[-1, 0]]
-        ], data: [
+        ],
+        degreesMap: [330, 210, 30, 150, 0, 180],
+        data: [
             [0, 0], [0, 1], [0, 2], [0, -1], [0, -2],
             [1, 0], [2, 0], [3, 0], [4, 0], [-1, 0], [-2, 0], [-3, 0], [-4, 0],
             [1, 1], [2, 1], [3, 1], [4, 1], [-1, 1], [-2, 1], [-3, 1], [-4, 1],
@@ -21,7 +23,9 @@ const PUZZLE_MAPS = {
             [[0, -1]],
             [[1, 0]],
             [[-1, 0]]
-        ], data: [
+        ],
+        degreesMap: [270, 90, 0, 180],
+        data: [
             [0, 0], [0, -1], [0, -2], [0, 1], [0, 2], [0, 3],
             [1, 0], [2, 0], [3, 0], [-1, 0], [-2, 0], [-3, 0],
             [1, 1], [2, 1], [3, 1], [-1, 1], [-2, 1], [-3, 1],
@@ -38,7 +42,9 @@ const PUZZLE_MAPS = {
             [[0, -1]],
             [[-1, 1]],
             [[1, -1]]
-        ], data: [
+        ],
+        degreesMap: [330, 270, 150, 90, 210, 30],
+        data: [
             [0, 0], [0, 1], [0, 2], [0, 3], [0, -1], [0, -2], [1, 0], [2, 0], [3, 0],
             [-1, 0], [-2, 0], [-3, 0], [1, 1], [2, 1], [-1, 1], [-2, 1], [3, 1],
             [-3, 1], [1, -1], [2, -1], [3, -1], [-1, -1], [-2, -1], [-1, -2],
@@ -62,8 +68,17 @@ const MinigameMaster = {
     blockersList: [],
     teleporters: [null, null],
     startingTile: null,
-    dummyBlockersList: [],
+    solution: [],
     puzzleIsReady: false,
+    movement: {
+        currentPosTile: null,
+        hoveredVecs: null,
+        isMoving: false,
+        destinationTile: null
+    },
+    dummyBlockersList: [],
+    teleportAnimation: { tilePos: null, progress: 0 },
+    moveAnimation: { progress: 0, ghostTrails: [] },
     // setting up but not generating puzzle
     setUpPuzzle: function (blockersAmount, tt, p) {
         // set up mapTiles, mapTilesKeys, tt
@@ -94,6 +109,7 @@ const MinigameMaster = {
         // reset previous puzzle data
         MinigameMaster.generationSteps = [];
         MinigameMaster.blockersList = [];
+        MinigameMaster.solution = [];
         // teleporters (if not first difficulty)
         if (MinigameMaster.blockersAmount === PUZZLE_DIFFICULTIES[0]) {
             MinigameMaster.teleporters = [null, null];
@@ -137,7 +153,7 @@ const MinigameMaster = {
                 newRandomTile !== MinigameMaster.teleporters[1])
                 break;
         }
-        MinigameMaster.generationSteps.push({ tile: newRandomTile, blocker: null });
+        MinigameMaster.generationSteps.push({ tile: newRandomTile, blocker: null, vecs: null });
         // not enough blockers yet?
         while (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount) {
             const currentPosTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
@@ -158,7 +174,7 @@ const MinigameMaster = {
                 if (heavyBlocker) {
                     // any pos ahead will do
                     slideInfo.tilesList.forEach((tile, index) => {
-                        const step = { tile: tile, blocker: heavyBlocker };
+                        const step = { tile: tile, blocker: heavyBlocker, vecs: chosenVector };
                         for (let i = 0; i < index + 2; i++) { // +2 for a bit bias
                             possibleMoves.push(step);
                         }
@@ -167,7 +183,7 @@ const MinigameMaster = {
                 if (mediumBlocker) {
                     // any pos ahead will do, except the first 1
                     slideInfo.tilesList.slice(1).forEach((tile, index) => {
-                        const step = { tile: tile, blocker: mediumBlocker };
+                        const step = { tile: tile, blocker: mediumBlocker, vecs: chosenVector };
                         for (let i = 0; i < index + 1; i++) {
                             possibleMoves.push(step);
                         }
@@ -176,7 +192,7 @@ const MinigameMaster = {
                 if (lightBlocker) { // preferred
                     // any pos ahead will do, except the first 2
                     slideInfo.tilesList.slice(2).forEach((tile, index) => {
-                        const step = { tile: tile, blocker: lightBlocker };
+                        const step = { tile: tile, blocker: lightBlocker, vecs: chosenVector };
                         for (let i = 0; i < index + 1; i++) {
                             possibleMoves.push(step);
                             // 50% chance to add more
@@ -195,6 +211,23 @@ const MinigameMaster = {
             if (pickedStep) {
                 MinigameMaster.generationSteps.push(pickedStep);
                 MinigameMaster.blockersList.push(pickedStep.blocker);
+                // add to solution
+                const actualVecs = getOppositeVectors(pickedStep.vecs);
+                PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs, vecsIndex) => {
+                    // matching this vecs?
+                    if (vecs.every((vec, index) => {
+                        const targetVec = actualVecs[index];
+                        if (targetVec && vec) {
+                            return targetVec[0] === vec[0] && targetVec[1] === vec[1];
+                        }
+                        else
+                            return index === 1 && targetVec === vec;
+                    })) {
+                        MinigameMaster.solution.unshift(PUZZLE_MAPS[MinigameMaster.tt].degreesMap[vecsIndex]);
+                        return true;
+                    }
+                    return false;
+                });
             }
             else
                 break; // no more step available
@@ -207,8 +240,8 @@ const MinigameMaster = {
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
             MinigameMaster.puzzleIsReady = true;
             console.log("solution:");
-            MinigameMaster.generationSteps.slice(1).forEach((s) => {
-                console.log(`${s.tile.pos.toString()} -> ${s.blocker.weight}`);
+            MinigameMaster.solution.forEach((s) => {
+                console.log(s);
             });
         }
     },
@@ -222,10 +255,8 @@ const MinigameMaster = {
         MinigameMaster.mapTileKeys.forEach((tileKey) => {
             renderTile(p, MinigameMaster.mapTiles[tileKey]);
         });
-        // renders starting pos
-        p.fill(230);
-        p.noStroke();
-        renderTransitionalTile({
+        // renders player
+        renderPlayer([230, 230, 230], [10, 10, 10], {
             p: p, tile: MinigameMaster.startingTile,
             renderPos: null, scaleValue: 0.8, rotateValue: 0,
             extraRender: null
@@ -294,10 +325,7 @@ const MinigameMaster = {
 };
 function getHeavyBlocker(currentPosTile, chosenVector) {
     // check the pos behind if empty and not near any light blocker
-    const oppositeVector = [];
-    chosenVector.forEach(vec => {
-        oppositeVector.push([vec[0] * -1, vec[1] * -1]);
-    });
+    const oppositeVector = getOppositeVectors(chosenVector);
     const targetPosTile = getSlideInfo(currentPosTile, oppositeVector).tilesList[0];
     if (!targetPosTile)
         return null; // tile not exist
@@ -417,7 +445,7 @@ const sketch = (p) => {
         p.textFont("monospace");
         p.angleMode(p.DEGREES);
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_DIFFICULTIES[2], l[p.floor(p.random(0, 3))], p);
+        MinigameMaster.setUpPuzzle(PUZZLE_DIFFICULTIES[1], l[p.floor(p.random(0, 3))], p);
     };
     p.draw = () => {
         p.push();
@@ -582,7 +610,36 @@ function renderTransitionalTile(props) {
         extraRender();
     p.pop();
 }
+function renderPlayer(fillColor, strokeColor, props) {
+    const p = props.p, tile = props.tile;
+    p.fill(fillColor[0], fillColor[1], fillColor[2]);
+    p.noStroke();
+    props.extraRender = function () {
+        p.stroke(strokeColor[0], strokeColor[1], strokeColor[2]);
+        p.strokeWeight(5);
+        if (tile.tt === "HEXAGON") {
+            for (let i = 0; i < 6; i++) {
+                p.line(20, 0, -20, 0);
+                p.rotate(60);
+            }
+        }
+        else if (tile.tt === "SQUARE") {
+            p.line(-15, -15, 15, 15);
+            p.line(15, -15, -15, 15);
+        }
+        else {
+            for (let i = 0; i < 3; i++) {
+                p.line(0, 0, 0, -20);
+                p.rotate(120);
+            }
+        }
+    };
+    renderTransitionalTile(props);
+}
 // HELPER FUNCTIONS
+function getOppositeVectors(vecs) {
+    return vecs.map(vec => [vec[0] * -1, vec[1] * -1]);
+}
 function setUpNeighbors(tile, vectorsList) {
     vectorsList.forEach(vec => {
         const nKey = posToKey([

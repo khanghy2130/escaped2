@@ -1,5 +1,6 @@
 const PUZZLE_MAPS: {[keys: string]: {
-    dirVectors: Position2D[][], yPos: number, data: Position2D[]
+    dirVectors: Position2D[][], degreesMap: number[], // matches dirVectors order
+    yPos: number, data: Position2D[]
 }} = {
     TRIANGLE: {yPos: 320,
     dirVectors: [
@@ -9,7 +10,9 @@ const PUZZLE_MAPS: {[keys: string]: {
         [[0,-1],[-1,0]],
         [[1,0]],
         [[-1,0]]
-    ], data:[
+    ],
+    degreesMap: [330, 210, 30, 150, 0, 180], 
+    data:[
         [0,0], [0,1], [0,2], [0,-1], [0,-2],
         [1,0], [2,0], [3,0], [4,0], [-1,0], [-2,0], [-3,0], [-4,0],
         [1,1], [2,1], [3,1], [4,1], [-1,1], [-2,1], [-3,1], [-4,1],
@@ -23,7 +26,9 @@ const PUZZLE_MAPS: {[keys: string]: {
         [[0,-1]],
         [[1,0]],
         [[-1,0]]
-    ], data:[
+    ], 
+    degreesMap: [270, 90, 0, 180], 
+    data:[
         [0,0], [0,-1], [0,-2], [0,1], [0,2], [0,3],
         [1,0], [2,0], [3,0], [-1,0], [-2,0], [-3,0],
         [1,1], [2,1], [3,1], [-1,1], [-2,1], [-3,1],
@@ -40,7 +45,9 @@ const PUZZLE_MAPS: {[keys: string]: {
         [[0,-1]],
         [[-1,1]],
         [[1,-1]]
-    ], data:[
+    ], 
+    degreesMap: [330, 270, 150, 90, 210, 30], 
+    data:[
         [0,0], [0,1], [0,2], [0,3], [0,-1], [0,-2], [1,0], [2,0], [3,0],
         [-1,0], [-2,0], [-3,0], [1,1], [2,1], [-1,1], [-2,1], [3,1],
         [-3,1], [1,-1], [2,-1], [3,-1], [-1,-1], [-2,-1], [-1,-2],
@@ -56,9 +63,14 @@ const PUZZLE_BLOCKER_COLORS: ([number,number,number])[] = [
 ];
 const PUZZLE_DIFFICULTIES: number[] = [5, 7, 9];
 
-interface DUMMY_BLOCKER { renderPos: Position2D, rotation: number }
-interface BLOCKER {weight: 1|2|3, tile: Tile}
-interface GenerationStep {tile: Tile, blocker: BLOCKER}
+interface DUMMY_PUZZLE_BLOCKER {
+    blocker: PUZZLE_BLOCKER, 
+    posVector: p5.Vector, 
+    velocityVector: p5.Vector, 
+    rotation: number
+}
+interface PUZZLE_BLOCKER {weight: 1|2|3, tile: Tile, isDestroyed?: boolean}
+interface GenerationStep {tile: Tile, blocker: PUZZLE_BLOCKER, vecs: Position2D[]}
 interface MM_TYPE {
     // main data
     tt: Tile_Type;
@@ -66,14 +78,23 @@ interface MM_TYPE {
     mapTiles: {[keys:string]: Tile}; 
     mapTileKeys: string[];
     generationSteps: GenerationStep[];
-    blockersList: BLOCKER[];
+    blockersList: PUZZLE_BLOCKER[];
     teleporters: [Tile, Tile];
     startingTile: Tile; // contains starting position for player
-
+    solution: number[];
     puzzleIsReady: boolean, // false when still generating puzzle
 
+    movement: {
+        currentPosTile: Tile,
+        hoveredVecs: Position2D[],
+        isMoving: boolean,
+        destinationTile: Tile
+    },
+
     // animations
-    dummyBlockersList: DUMMY_BLOCKER[],
+    dummyBlockersList: DUMMY_PUZZLE_BLOCKER[],
+    teleportAnimation: {tilePos: Tile, progress: number},
+    moveAnimation: {progress: number, ghostTrails: GhostTrail[]},
 
     // methods
     setUpPuzzle: (blockersAmount: number, tt: Tile_Type, p: p5) => void;
@@ -90,9 +111,19 @@ const MinigameMaster: MM_TYPE = {
     blockersList: [],
     teleporters: [null, null],
     startingTile: null,
+    solution: [],
+    puzzleIsReady: false,
+
+    movement: {
+        currentPosTile: null,
+        hoveredVecs: null,
+        isMoving: false,
+        destinationTile: null
+    },
 
     dummyBlockersList: [],
-    puzzleIsReady: false,
+    teleportAnimation: {tilePos: null, progress: 0},
+    moveAnimation: {progress: 0, ghostTrails: []},
 
     // setting up but not generating puzzle
     setUpPuzzle: function(blockersAmount: number, tt: Tile_Type, p: p5):void{
@@ -125,6 +156,7 @@ const MinigameMaster: MM_TYPE = {
         // reset previous puzzle data
         MinigameMaster.generationSteps = [];
         MinigameMaster.blockersList = [];
+        MinigameMaster.solution = [];
 
         // teleporters (if not first difficulty)
         if (MinigameMaster.blockersAmount === PUZZLE_DIFFICULTIES[0]){
@@ -166,7 +198,9 @@ const MinigameMaster: MM_TYPE = {
             if (newRandomTile !== MinigameMaster.teleporters[0] &&
             newRandomTile !== MinigameMaster.teleporters[1]) break;
         }
-        MinigameMaster.generationSteps.push({tile: newRandomTile,blocker: null});
+        MinigameMaster.generationSteps.push(
+            {tile: newRandomTile, blocker: null, vecs:null}
+        );
         
         // not enough blockers yet?
         while (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount){
@@ -187,15 +221,15 @@ const MinigameMaster: MM_TYPE = {
                 if (slideInfo.tilesList.length === 0) continue;
 
                 // check validation for both blocker types
-                const heavyBlocker: BLOCKER = getHeavyBlocker(currentPosTile, chosenVector);
-                const mediumBlocker: BLOCKER = getMediumBlocker(currentPosTile);
-                const lightBlocker: BLOCKER = getLightBlocker(slideInfo);
+                const heavyBlocker: PUZZLE_BLOCKER = getHeavyBlocker(currentPosTile, chosenVector);
+                const mediumBlocker: PUZZLE_BLOCKER = getMediumBlocker(currentPosTile);
+                const lightBlocker: PUZZLE_BLOCKER = getLightBlocker(slideInfo);
 
                 const possibleMoves: GenerationStep[] = [];
                 if (heavyBlocker){
                     // any pos ahead will do
                     slideInfo.tilesList.forEach((tile,index)=>{
-                        const step:  GenerationStep = {tile: tile, blocker: heavyBlocker};
+                        const step:  GenerationStep = {tile: tile, blocker: heavyBlocker, vecs: chosenVector};
                         for (let i=0; i < index + 2; i++){ // +2 for a bit bias
                             possibleMoves.push(step);
                         }
@@ -204,7 +238,7 @@ const MinigameMaster: MM_TYPE = {
                 if (mediumBlocker){
                     // any pos ahead will do, except the first 1
                     slideInfo.tilesList.slice(1).forEach((tile,index)=>{
-                        const step:  GenerationStep = {tile: tile, blocker: mediumBlocker};
+                        const step:  GenerationStep = {tile: tile, blocker: mediumBlocker, vecs: chosenVector};
                         for (let i=0; i < index + 1; i++){
                             possibleMoves.push(step);
                         }
@@ -213,7 +247,7 @@ const MinigameMaster: MM_TYPE = {
                 if (lightBlocker){ // preferred
                     // any pos ahead will do, except the first 2
                     slideInfo.tilesList.slice(2).forEach((tile,index)=>{
-                        const step:  GenerationStep = {tile: tile, blocker: lightBlocker};
+                        const step:  GenerationStep = {tile: tile, blocker: lightBlocker, vecs: chosenVector };
                         for (let i=0; i < index + 1; i++){
                             possibleMoves.push(step);
                             // 50% chance to add more
@@ -234,6 +268,25 @@ const MinigameMaster: MM_TYPE = {
             if (pickedStep){
                 MinigameMaster.generationSteps.push(pickedStep);
                 MinigameMaster.blockersList.push(pickedStep.blocker);
+
+                // add to solution
+                const actualVecs: Position2D[] = getOppositeVectors(pickedStep.vecs);
+                PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs, vecsIndex) => {
+                    // matching this vecs?
+                    if (vecs.every((vec, index) => {
+                        const targetVec: Position2D = actualVecs[index];
+                        if (targetVec && vec){
+                            return targetVec[0] === vec[0] && targetVec[1] === vec[1];
+                        }
+                        else return index === 1 && targetVec === vec;
+                    })){
+                        MinigameMaster.solution.unshift(
+                            PUZZLE_MAPS[MinigameMaster.tt].degreesMap[vecsIndex]
+                        );
+                        return true;
+                    }
+                    return false;
+                });
             }
             else break; // no more step available
         }
@@ -245,8 +298,8 @@ const MinigameMaster: MM_TYPE = {
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length-1].tile;
             MinigameMaster.puzzleIsReady = true;
             console.log("solution:");
-            MinigameMaster.generationSteps.slice(1).forEach((s) => {
-                console.log(`${s.tile.pos.toString()} -> ${s.blocker.weight}`);
+            MinigameMaster.solution.forEach((s) => {
+                console.log(s);
             });
         }
     },
@@ -262,10 +315,8 @@ const MinigameMaster: MM_TYPE = {
             renderTile(p, MinigameMaster.mapTiles[tileKey]);
         });
 
-        // renders starting pos
-        p.fill(230);
-        p.noStroke();
-        renderTransitionalTile({
+        // renders player
+        renderPlayer([230,230,230], [10,10,10], {
             p: p, tile: MinigameMaster.startingTile,
             renderPos: null, scaleValue: 0.8, rotateValue: 0,
             extraRender: null
@@ -300,7 +351,7 @@ const MinigameMaster: MM_TYPE = {
         // renders blockers
         p.textSize(36);
         p.noStroke();
-        MinigameMaster.blockersList.forEach((b:BLOCKER) => {
+        MinigameMaster.blockersList.forEach((b:PUZZLE_BLOCKER) => {
             const bColor: number[] = PUZZLE_BLOCKER_COLORS[b.weight-1];
             p.fill(bColor[0], bColor[1], bColor[2]);
             renderTransitionalTile({
@@ -343,12 +394,9 @@ const MinigameMaster: MM_TYPE = {
 };
 
 
-function getHeavyBlocker(currentPosTile: Tile, chosenVector: Position2D[]): BLOCKER{
+function getHeavyBlocker(currentPosTile: Tile, chosenVector: Position2D[]): PUZZLE_BLOCKER{
     // check the pos behind if empty and not near any light blocker
-    const oppositeVector: Position2D[] = [];
-    chosenVector.forEach(vec => {
-        oppositeVector.push([vec[0] * -1, vec[1] * -1]);
-    });
+    const oppositeVector: Position2D[] = getOppositeVectors(chosenVector);
 
     const targetPosTile: Tile = getSlideInfo(
         currentPosTile, oppositeVector
@@ -358,11 +406,11 @@ function getHeavyBlocker(currentPosTile: Tile, chosenVector: Position2D[]): BLOC
     if (isAnythingAdjacent(targetPosTile)) return null;
     return {tile: targetPosTile, weight: 3};
 }
-function getMediumBlocker(targetPosTile: Tile): BLOCKER{
+function getMediumBlocker(targetPosTile: Tile): PUZZLE_BLOCKER{
     if (isAnythingAdjacent(targetPosTile)) return null;
     return {tile: targetPosTile, weight: 2};
 }
-function getLightBlocker(slideInfo: SlideInfo): BLOCKER{
+function getLightBlocker(slideInfo: SlideInfo): PUZZLE_BLOCKER{
     const targetPosTile: Tile = slideInfo.tilesList[0];
     if (isAnythingAdjacent(targetPosTile)) return null;
     return {tile: targetPosTile, weight: 1};
@@ -377,7 +425,7 @@ function isAnythingAdjacent(targetPosTile: Tile): boolean {
 
     // any blocker or teleporter on these tiles?
     return dangerTiles.some((dangerTile: Tile) => {
-        const hasBlocker: boolean = MinigameMaster.blockersList.some((b:BLOCKER) => {
+        const hasBlocker: boolean = MinigameMaster.blockersList.some((b:PUZZLE_BLOCKER) => {
             return dangerTile === b.tile;
         });
         const hasTeleporter: boolean = MinigameMaster.teleporters.some(
@@ -392,7 +440,7 @@ function isAnythingAdjacent(targetPosTile: Tile): boolean {
 // stops at edge or has blocker
 // triangle if moving diagonally: vec1 is vertical, vec2 is horizontal
 interface SlideInfo {
-    tilesList: Tile[], hitBlocker: BLOCKER, hitEdgeTile: Tile
+    tilesList: Tile[], hitBlocker: PUZZLE_BLOCKER, hitEdgeTile: Tile
 }
 function getSlideInfo(
     currentTile: Tile, vecs: Position2D[], 
@@ -443,7 +491,7 @@ function getSlideInfo(
 
         // tile exists! check if has blocker (if not ignored)
         if (!ignoreBlocker){
-            const hasBlocker: boolean = MinigameMaster.blockersList.some((b: BLOCKER) => {
+            const hasBlocker: boolean = MinigameMaster.blockersList.some((b: PUZZLE_BLOCKER) => {
                 if (b.tile === nextNeighbor.tile) {
                     result.hitBlocker = b;
                     return true;

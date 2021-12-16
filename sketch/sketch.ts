@@ -12,7 +12,7 @@ const sketch = (p: p5) => {
         p.angleMode(p.DEGREES);
 
         const l: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_DIFFICULTIES[2], l[p.floor(p.random(0,3))] , p);
+        MinigameMaster.setUpPuzzle(PUZZLE_DIFFICULTIES[1], l[p.floor(p.random(0,3))] , p);
 	};
 
 	p.draw = () => {
