@@ -88,7 +88,8 @@ interface MM_TYPE {
         currentPosTile: Tile,
         hoveredVecs: Position2D[],
         isMoving: boolean,
-        destinationTile: Tile
+        destinationTile: Tile,
+        reminderScale: number
     },
 
     // animations
@@ -100,6 +101,7 @@ interface MM_TYPE {
     setUpPuzzle: (blockersAmount: number, tt: Tile_Type, p: p5) => void;
     generatePuzzle: (p: p5) => void;
     render: (p: p5)=>void;
+    renderInputInterface: (p: p5, m: MM_TYPE["movement"])=>void;
     getRandomTile: (p: p5)=>Tile;
 }
 const MinigameMaster: MM_TYPE = {
@@ -118,7 +120,8 @@ const MinigameMaster: MM_TYPE = {
         currentPosTile: null,
         hoveredVecs: null,
         isMoving: false,
-        destinationTile: null
+        destinationTile: null,
+        reminderScale: 0
     },
 
     dummyBlockersList: [],
@@ -171,7 +174,7 @@ const MinigameMaster: MM_TYPE = {
                 // reroll if the same as the first or near it
                 if (isAnythingAdjacent(secondTeleporter)) continue;
                 // reroll if on the same path as the first (check each direction > each tile)
-                if (PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs) => {
+                if (getPM().dirVectors.some((vecs) => {
                     const slideInfo: SlideInfo = getSlideInfo(secondTeleporter, vecs, true);
                     return slideInfo.tilesList.some(t => t === firstTeleporter);
                 })) {continue;}
@@ -205,7 +208,7 @@ const MinigameMaster: MM_TYPE = {
         // not enough blockers yet?
         while (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount){
             const currentPosTile: Tile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length-1].tile;
-            const dirVectors: Position2D[][] = PUZZLE_MAPS[MinigameMaster.tt].dirVectors.slice();
+            const dirVectors: Position2D[][] = getPM().dirVectors.slice();
             let pickedStep: GenerationStep = null;
 
             // while there are dirs left
@@ -271,7 +274,7 @@ const MinigameMaster: MM_TYPE = {
 
                 // add to solution
                 const actualVecs: Position2D[] = getOppositeVectors(pickedStep.vecs);
-                PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs, vecsIndex) => {
+                getPM().dirVectors.some((vecs, vecsIndex) => {
                     // matching this vecs?
                     if (vecs.every((vec, index) => {
                         const targetVec: Position2D = actualVecs[index];
@@ -281,7 +284,7 @@ const MinigameMaster: MM_TYPE = {
                         else return index === 1 && targetVec === vec;
                     })){
                         MinigameMaster.solution.unshift(
-                            PUZZLE_MAPS[MinigameMaster.tt].degreesMap[vecsIndex]
+                            getPM().degreesMap[vecsIndex]
                         );
                         return true;
                     }
@@ -297,6 +300,13 @@ const MinigameMaster: MM_TYPE = {
         } else { // success
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length-1].tile;
             MinigameMaster.puzzleIsReady = true;
+            MinigameMaster.movement = {
+                currentPosTile: MinigameMaster.startingTile,
+                hoveredVecs: null,
+                isMoving: false,
+                destinationTile: null,
+                reminderScale: 0
+            };
             console.log("solution:");
             MinigameMaster.solution.forEach((s) => {
                 console.log(s);
@@ -305,7 +315,10 @@ const MinigameMaster: MM_TYPE = {
     },
 
     render: function(p: p5):void{
-        p.translate(300, PUZZLE_MAPS[MinigameMaster.tt].yPos); // moves the map
+        // reset
+        MinigameMaster.movement.hoveredVecs = null;
+
+        p.translate(300, getPM().yPos); // moves the map
         // renders map
         p.stroke(MAIN_THEME.LIGHT);
         p.strokeWeight(1.5);
@@ -313,13 +326,6 @@ const MinigameMaster: MM_TYPE = {
         p.textSize(20);
         MinigameMaster.mapTileKeys.forEach((tileKey: string) => {
             renderTile(p, MinigameMaster.mapTiles[tileKey]);
-        });
-
-        // renders player
-        renderPlayer([230,230,230], [10,10,10], {
-            p: p, tile: MinigameMaster.startingTile,
-            renderPos: null, scaleValue: 0.8, rotateValue: 0,
-            extraRender: null
         });
 
         // renders teleporters
@@ -345,8 +351,6 @@ const MinigameMaster: MM_TYPE = {
                 });
             });
         }
-        
-        
 
         // renders blockers
         p.textSize(36);
@@ -365,33 +369,139 @@ const MinigameMaster: MM_TYPE = {
             });
         });
 
+        // renders player
+        renderPlayer([230,230,230], [10,10,10], {
+            p: p, tile: MinigameMaster.startingTile,
+            renderPos: null, scaleValue: 0.8, rotateValue: 0,
+            extraRender: null
+        });
         
 
+        // renders input interface
+        const m: MM_TYPE["movement"] = MinigameMaster.movement;
+        MinigameMaster.renderInputInterface(p, m);
+        
+        // renders input zone reminder
+        const REMINDER_SCALE_MAX: number = 100;
+        const REMINDER_TRIGGER_POINT: number = -100;
+        if (m.reminderScale-- > 0){
+            p.noFill();
+            p.stroke(230,230,230, p.map(
+                m.reminderScale, REMINDER_SCALE_MAX, 0, 255, 0
+            ));
+            p.strokeWeight(2);
+            renderTransitionalTile({
+                p: p, tile: m.currentPosTile,
+                renderPos: null, 
+                scaleValue: p.map(
+                    m.reminderScale, REMINDER_SCALE_MAX, 0, 0.8, 3.0
+                ), 
+                rotateValue: 0,
+                extraRender: null
+            });
+        }
+        if (!m.hoveredVecs && !m.isMoving){
+            if (m.reminderScale < REMINDER_TRIGGER_POINT) m.reminderScale = REMINDER_SCALE_MAX;
+        }
 
-        ///////////// test
-        /*
-        this.mapTileKeys.forEach((tileKey: string) => {
-            const tile: Tile = this.mapTiles[tileKey];
-            if (p.mouseIsPressed && p.dist(
-                p.mouseX,p.mouseY,tile.renderPos[0] + 300, tile.renderPos[1] + PUZZLE_MAPS[this.tt].yPos
-            ) < 30){
-                const vecs = PUZZLE_MAPS[this.tt].dirVectors[p.floor(p.frameCount % PUZZLE_MAPS[this.tt].dirVectors.length)]
-                const slideInfo: SlideInfo = getSlideInfo(tile, vecs);
-                // all pos ahead
-                p.stroke(255,0,0);
-                slideInfo.tilesList.forEach((yt:Tile) => renderTile(p, yt));
-                // out of bound tile
-                p.stroke(255,255,0);
-                if (slideInfo.hitEdgeTile) renderTile(p, slideInfo.hitEdgeTile);
-            }
-        });*/
+        
     },
+
+    renderInputInterface(p:p5, m: MM_TYPE["movement"]):void{
+        // check to quit (on submenu, isMoving, out of board mouse is not close enough)
+        ////////////////
+        if (p.mouseY < 80) return; // out of board;
+
+        let currentRenderPos: Position2D = m.currentPosTile.renderPos;
+        let mousePos: Position2D = [
+            p.mouseX - 300,
+            p.mouseY - getPM().yPos
+        ];
+        
+        // close to player tile?
+        const distFromPlayerTile: number = p.dist(mousePos[0], mousePos[1], currentRenderPos[0], currentRenderPos[1]);
+        if (distFromPlayerTile < 180){
+            const hoveredDeg: number = getDegree(
+                p, currentRenderPos, mousePos, 
+                getPM().degreesMap
+            );
+            m.hoveredVecs = getPM().dirVectors[getPM().degreesMap.indexOf(hoveredDeg)];
+            const slideInfo: SlideInfo = getSlideInfo(m.currentPosTile, m.hoveredVecs, false, true);
+            if (slideInfo.hitEdgeTile) slideInfo.tilesList.push(slideInfo.hitEdgeTile);
+
+            // remove all pos back to the destination tile
+            for (let i=0; i < slideInfo.tilesList.length; i++){
+                const t: Tile = slideInfo.tilesList[i];
+                let blocker: PUZZLE_BLOCKER = null;
+                MinigameMaster.blockersList.some(b => {
+                    if (b.tile === t){
+                        blocker = b;
+                        return true;
+                    }
+                    return false;
+                });
+                if (!blocker || blocker.isDestroyed) continue; // skip this pos if not blocker
+
+                // if this blocker is right next to player then remove ALL pos
+                if (i === 0) {
+                    slideInfo.tilesList = [];
+                    break;
+                }
+
+                let sliceIndex: number;
+                if (blocker.weight === 1) sliceIndex = i + 2; 
+                else if (blocker.weight === 2) sliceIndex = i + 1; 
+                else if (blocker.weight === 3) sliceIndex = i;
+                slideInfo.tilesList = slideInfo.tilesList.slice(0, sliceIndex);
+                break;
+            }
+            // EXIT if no move available
+            if (slideInfo.tilesList.length === 0) {
+                m.hoveredVecs = null;
+                return;
+            }
+
+            const redColor: p5.Color = p.color(230,0,0);
+            const greenColor: p5.Color = p.color(0,230,0);
+            const destinationTile: Tile = slideInfo.tilesList[slideInfo.tilesList.length-1];
+            const isOutOfBound: boolean = slideInfo.hitEdgeTile === destinationTile;
+
+            // renders move line
+            if (isOutOfBound) p.stroke(redColor);
+            else p.stroke(greenColor);
+            let previousTile: Tile = m.currentPosTile;
+            slideInfo.tilesList.forEach((pathTile:Tile) => {
+                // draw line if both previous and current tiles are not teleporters
+                if (!MinigameMaster.teleporters.includes(pathTile) ||
+                !MinigameMaster.teleporters.includes(previousTile)){
+                    p.line(
+                        previousTile.renderPos[0],
+                        previousTile.renderPos[1],
+                        pathTile.renderPos[0],
+                        pathTile.renderPos[1]
+                    );
+                }
+                previousTile = pathTile;
+            });
+
+            // render destination tile
+            if (isOutOfBound) p.fill(redColor);
+            else p.fill(greenColor);
+            p.noStroke();
+            renderTile(p, destinationTile);
+        }
+    },
+
     getRandomTile(p:p5):Tile{
         return MinigameMaster.mapTiles[MinigameMaster.mapTileKeys[
             p.floor(p.random(0, MinigameMaster.mapTileKeys.length))
         ]];
     }
 };
+
+function getPM(): typeof PUZZLE_MAPS[MM_TYPE["tt"]] {
+    return PUZZLE_MAPS[MinigameMaster.tt];
+}
 
 
 function getHeavyBlocker(currentPosTile: Tile, chosenVector: Position2D[]): PUZZLE_BLOCKER{
@@ -444,7 +554,8 @@ interface SlideInfo {
 }
 function getSlideInfo(
     currentTile: Tile, vecs: Position2D[], 
-    ignoreTelerporter?: boolean, ignoreBlocker?: boolean
+    ignoreTelerporter?: boolean, // for spawning teleporters
+    ignoreBlocker?: boolean // for input preview (add teleporter tiles too)
 ): SlideInfo {
     const [vec1,vec2] = vecs;
     const result: SlideInfo = {
@@ -506,9 +617,17 @@ function getSlideInfo(
             const isFirstTeleporter: boolean = nextNeighbor.tile === MinigameMaster.teleporters[0];
             const isSecondTeleporter: boolean = nextNeighbor.tile === MinigameMaster.teleporters[1];
             if (isFirstTeleporter){
+                if (ignoreBlocker){ // for input preview: add both teleporters
+                    result.tilesList.push(nextNeighbor.tile);
+                    result.tilesList.push(MinigameMaster.teleporters[1]);
+                }
                 currentTile = MinigameMaster.teleporters[1];
                 continue;
             } else if (isSecondTeleporter){
+                if (ignoreBlocker){ // for input preview: add both teleporters
+                    result.tilesList.push(nextNeighbor.tile);
+                    result.tilesList.push(MinigameMaster.teleporters[0]);
+                }
                 currentTile = MinigameMaster.teleporters[0];
                 continue;
             }

@@ -74,7 +74,8 @@ const MinigameMaster = {
         currentPosTile: null,
         hoveredVecs: null,
         isMoving: false,
-        destinationTile: null
+        destinationTile: null,
+        reminderScale: 0
     },
     dummyBlockersList: [],
     teleportAnimation: { tilePos: null, progress: 0 },
@@ -124,7 +125,7 @@ const MinigameMaster = {
                 if (isAnythingAdjacent(secondTeleporter))
                     continue;
                 // reroll if on the same path as the first (check each direction > each tile)
-                if (PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs) => {
+                if (getPM().dirVectors.some((vecs) => {
                     const slideInfo = getSlideInfo(secondTeleporter, vecs, true);
                     return slideInfo.tilesList.some(t => t === firstTeleporter);
                 })) {
@@ -157,7 +158,7 @@ const MinigameMaster = {
         // not enough blockers yet?
         while (MinigameMaster.blockersList.length < MinigameMaster.blockersAmount) {
             const currentPosTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
-            const dirVectors = PUZZLE_MAPS[MinigameMaster.tt].dirVectors.slice();
+            const dirVectors = getPM().dirVectors.slice();
             let pickedStep = null;
             // while there are dirs left
             while (dirVectors.length > 0) {
@@ -213,7 +214,7 @@ const MinigameMaster = {
                 MinigameMaster.blockersList.push(pickedStep.blocker);
                 // add to solution
                 const actualVecs = getOppositeVectors(pickedStep.vecs);
-                PUZZLE_MAPS[MinigameMaster.tt].dirVectors.some((vecs, vecsIndex) => {
+                getPM().dirVectors.some((vecs, vecsIndex) => {
                     // matching this vecs?
                     if (vecs.every((vec, index) => {
                         const targetVec = actualVecs[index];
@@ -223,7 +224,7 @@ const MinigameMaster = {
                         else
                             return index === 1 && targetVec === vec;
                     })) {
-                        MinigameMaster.solution.unshift(PUZZLE_MAPS[MinigameMaster.tt].degreesMap[vecsIndex]);
+                        MinigameMaster.solution.unshift(getPM().degreesMap[vecsIndex]);
                         return true;
                     }
                     return false;
@@ -239,6 +240,13 @@ const MinigameMaster = {
         else { // success
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
             MinigameMaster.puzzleIsReady = true;
+            MinigameMaster.movement = {
+                currentPosTile: MinigameMaster.startingTile,
+                hoveredVecs: null,
+                isMoving: false,
+                destinationTile: null,
+                reminderScale: 0
+            };
             console.log("solution:");
             MinigameMaster.solution.forEach((s) => {
                 console.log(s);
@@ -246,7 +254,9 @@ const MinigameMaster = {
         }
     },
     render: function (p) {
-        p.translate(300, PUZZLE_MAPS[MinigameMaster.tt].yPos); // moves the map
+        // reset
+        MinigameMaster.movement.hoveredVecs = null;
+        p.translate(300, getPM().yPos); // moves the map
         // renders map
         p.stroke(MAIN_THEME.LIGHT);
         p.strokeWeight(1.5);
@@ -254,12 +264,6 @@ const MinigameMaster = {
         p.textSize(20);
         MinigameMaster.mapTileKeys.forEach((tileKey) => {
             renderTile(p, MinigameMaster.mapTiles[tileKey]);
-        });
-        // renders player
-        renderPlayer([230, 230, 230], [10, 10, 10], {
-            p: p, tile: MinigameMaster.startingTile,
-            renderPos: null, scaleValue: 0.8, rotateValue: 0,
-            extraRender: null
         });
         // renders teleporters
         if (MinigameMaster.teleporters[0]) {
@@ -301,28 +305,120 @@ const MinigameMaster = {
                 }
             });
         });
-        ///////////// test
-        /*
-        this.mapTileKeys.forEach((tileKey: string) => {
-            const tile: Tile = this.mapTiles[tileKey];
-            if (p.mouseIsPressed && p.dist(
-                p.mouseX,p.mouseY,tile.renderPos[0] + 300, tile.renderPos[1] + PUZZLE_MAPS[this.tt].yPos
-            ) < 30){
-                const vecs = PUZZLE_MAPS[this.tt].dirVectors[p.floor(p.frameCount % PUZZLE_MAPS[this.tt].dirVectors.length)]
-                const slideInfo: SlideInfo = getSlideInfo(tile, vecs);
-                // all pos ahead
-                p.stroke(255,0,0);
-                slideInfo.tilesList.forEach((yt:Tile) => renderTile(p, yt));
-                // out of bound tile
-                p.stroke(255,255,0);
-                if (slideInfo.hitEdgeTile) renderTile(p, slideInfo.hitEdgeTile);
+        // renders player
+        renderPlayer([230, 230, 230], [10, 10, 10], {
+            p: p, tile: MinigameMaster.startingTile,
+            renderPos: null, scaleValue: 0.8, rotateValue: 0,
+            extraRender: null
+        });
+        // renders input interface
+        const m = MinigameMaster.movement;
+        MinigameMaster.renderInputInterface(p, m);
+        // renders input zone reminder
+        const REMINDER_SCALE_MAX = 100;
+        const REMINDER_TRIGGER_POINT = -100;
+        if (m.reminderScale-- > 0) {
+            p.noFill();
+            p.stroke(230, 230, 230, p.map(m.reminderScale, REMINDER_SCALE_MAX, 0, 255, 0));
+            p.strokeWeight(2);
+            renderTransitionalTile({
+                p: p, tile: m.currentPosTile,
+                renderPos: null,
+                scaleValue: p.map(m.reminderScale, REMINDER_SCALE_MAX, 0, 0.8, 3.0),
+                rotateValue: 0,
+                extraRender: null
+            });
+        }
+        if (!m.hoveredVecs && !m.isMoving) {
+            if (m.reminderScale < REMINDER_TRIGGER_POINT)
+                m.reminderScale = REMINDER_SCALE_MAX;
+        }
+    },
+    renderInputInterface(p, m) {
+        // check to quit (on submenu, isMoving, out of board mouse is not close enough)
+        ////////////////
+        if (p.mouseY < 80)
+            return; // out of board;
+        let currentRenderPos = m.currentPosTile.renderPos;
+        let mousePos = [
+            p.mouseX - 300,
+            p.mouseY - getPM().yPos
+        ];
+        // close to player tile?
+        const distFromPlayerTile = p.dist(mousePos[0], mousePos[1], currentRenderPos[0], currentRenderPos[1]);
+        if (distFromPlayerTile < 180) {
+            const hoveredDeg = getDegree(p, currentRenderPos, mousePos, getPM().degreesMap);
+            m.hoveredVecs = getPM().dirVectors[getPM().degreesMap.indexOf(hoveredDeg)];
+            const slideInfo = getSlideInfo(m.currentPosTile, m.hoveredVecs, false, true);
+            if (slideInfo.hitEdgeTile)
+                slideInfo.tilesList.push(slideInfo.hitEdgeTile);
+            // remove all pos back to the destination tile
+            for (let i = 0; i < slideInfo.tilesList.length; i++) {
+                const t = slideInfo.tilesList[i];
+                let blocker = null;
+                MinigameMaster.blockersList.some(b => {
+                    if (b.tile === t) {
+                        blocker = b;
+                        return true;
+                    }
+                    return false;
+                });
+                if (!blocker || blocker.isDestroyed)
+                    continue; // skip this pos if not blocker
+                // if this blocker is right next to player then remove ALL pos
+                if (i === 0) {
+                    slideInfo.tilesList = [];
+                    break;
+                }
+                let sliceIndex;
+                if (blocker.weight === 1)
+                    sliceIndex = i + 2;
+                else if (blocker.weight === 2)
+                    sliceIndex = i + 1;
+                else if (blocker.weight === 3)
+                    sliceIndex = i;
+                slideInfo.tilesList = slideInfo.tilesList.slice(0, sliceIndex);
+                break;
             }
-        });*/
+            // EXIT if no move available
+            if (slideInfo.tilesList.length === 0) {
+                m.hoveredVecs = null;
+                return;
+            }
+            const redColor = p.color(230, 0, 0);
+            const greenColor = p.color(0, 230, 0);
+            const destinationTile = slideInfo.tilesList[slideInfo.tilesList.length - 1];
+            const isOutOfBound = slideInfo.hitEdgeTile === destinationTile;
+            // renders move line
+            if (isOutOfBound)
+                p.stroke(redColor);
+            else
+                p.stroke(greenColor);
+            let previousTile = m.currentPosTile;
+            slideInfo.tilesList.forEach((pathTile) => {
+                // draw line if both previous and current tiles are not teleporters
+                if (!MinigameMaster.teleporters.includes(pathTile) ||
+                    !MinigameMaster.teleporters.includes(previousTile)) {
+                    p.line(previousTile.renderPos[0], previousTile.renderPos[1], pathTile.renderPos[0], pathTile.renderPos[1]);
+                }
+                previousTile = pathTile;
+            });
+            // render destination tile
+            if (isOutOfBound)
+                p.fill(redColor);
+            else
+                p.fill(greenColor);
+            p.noStroke();
+            renderTile(p, destinationTile);
+        }
     },
     getRandomTile(p) {
         return MinigameMaster.mapTiles[MinigameMaster.mapTileKeys[p.floor(p.random(0, MinigameMaster.mapTileKeys.length))]];
     }
 };
+function getPM() {
+    return PUZZLE_MAPS[MinigameMaster.tt];
+}
 function getHeavyBlocker(currentPosTile, chosenVector) {
     // check the pos behind if empty and not near any light blocker
     const oppositeVector = getOppositeVectors(chosenVector);
@@ -359,7 +455,9 @@ function isAnythingAdjacent(targetPosTile) {
         return hasBlocker || hasTeleporter;
     });
 }
-function getSlideInfo(currentTile, vecs, ignoreTelerporter, ignoreBlocker) {
+function getSlideInfo(currentTile, vecs, ignoreTelerporter, // for spawning teleporters
+ignoreBlocker // for input preview (add teleporter tiles too)
+) {
     const [vec1, vec2] = vecs;
     const result = {
         tilesList: [],
@@ -419,10 +517,18 @@ function getSlideInfo(currentTile, vecs, ignoreTelerporter, ignoreBlocker) {
             const isFirstTeleporter = nextNeighbor.tile === MinigameMaster.teleporters[0];
             const isSecondTeleporter = nextNeighbor.tile === MinigameMaster.teleporters[1];
             if (isFirstTeleporter) {
+                if (ignoreBlocker) { // for input preview: add both teleporters
+                    result.tilesList.push(nextNeighbor.tile);
+                    result.tilesList.push(MinigameMaster.teleporters[1]);
+                }
                 currentTile = MinigameMaster.teleporters[1];
                 continue;
             }
             else if (isSecondTeleporter) {
+                if (ignoreBlocker) { // for input preview: add both teleporters
+                    result.tilesList.push(nextNeighbor.tile);
+                    result.tilesList.push(MinigameMaster.teleporters[0]);
+                }
                 currentTile = MinigameMaster.teleporters[0];
                 continue;
             }
@@ -465,6 +571,9 @@ const sketch = (p) => {
         // renderTile(p, tri);
         p.pop();
     };
+    p.mouseReleased = () => {
+        console.log(MinigameMaster.movement.hoveredVecs);
+    };
 };
 window.onload = () => {
     const canvasDiv = document.getElementById("canvas-program-container");
@@ -483,7 +592,7 @@ const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3) / 2,
     HEXAGON_HALF_SCALING: SCALINGS.HEXAGON / 2,
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3) / 2,
-    TRIANGLE_CENTER_Y: SCALINGS.TRIANGLE / (Math.sqrt(3) * 2),
+    TRIANGLE_CENTER_Y: SCALINGS.TRIANGLE / (Math.sqrt(3) * 2)
 };
 class Square_Tile {
     constructor(pos) {
@@ -669,5 +778,22 @@ function keyToPos(key) {
         throw "NaN found in key";
     return [xy[0], xy[1]];
 }
-// https://github.com/khanghy2130/Spread/blob/master/js/tile_types.js
+// returns the degree in degreesMap that is closest to tracker direction
+function getDegree(p, centerPos, trackerPos, degreesMap) {
+    let a = p.atan2(trackerPos[1] - centerPos[1], trackerPos[0] - centerPos[0]) * -1;
+    if (a < 0)
+        a = 360 + a;
+    // see which is the closest to input deg
+    const proximities = degreesMap
+        .map(function (deg, index) {
+        const abs1 = p.abs(a - deg);
+        let abs2 = 999;
+        if (a > 270) {
+            abs2 = p.abs(-(360 - a) - deg);
+        }
+        return [p.min(abs1, abs2), index];
+    });
+    proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
+    return degreesMap[proximities[0][1]];
+}
 //# sourceMappingURL=build.js.map

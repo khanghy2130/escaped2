@@ -9,7 +9,7 @@ const CONSTANTS = {
     HEXAGON_HALF_SCALING: SCALINGS.HEXAGON / 2,
 
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3)/2,
-    TRIANGLE_CENTER_Y : SCALINGS.TRIANGLE / (Math.sqrt(3)*2),
+    TRIANGLE_CENTER_Y : SCALINGS.TRIANGLE / (Math.sqrt(3)*2)
 };
 ////////type DIR_DEGREE = 0 | 30 | 90 | 150 | 180 | 210 | 270 | 330;
 // const DIR_DEGREES: ({[keys: string]: DIR_DEGREE[]}) = {
@@ -242,5 +242,24 @@ function keyToPos(key:string): Position2D{
 
 
 
+// returns the degree in degreesMap that is closest to tracker direction
+function getDegree(p:p5, centerPos: Position2D, trackerPos: Position2D, degreesMap: number[]): number{
+    let a: number = p.atan2(
+        trackerPos[1] - centerPos[1], 
+        trackerPos[0] - centerPos[0]
+    ) * -1;
+    if (a < 0) a = 360 + a;
 
-// https://github.com/khanghy2130/Spread/blob/master/js/tile_types.js
+    // see which is the closest to input deg
+    const proximities: [number, number][] = degreesMap
+    .map(function(deg, index): [number,number] {
+        const abs1: number = p.abs(a - deg);
+        let abs2: number = 999;
+        if (a > 270) {
+            abs2 = p.abs(-(360 - a) - deg);
+        }
+        return [p.min(abs1, abs2), index]
+    });
+    proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
+    return degreesMap[proximities[0][1]];
+}

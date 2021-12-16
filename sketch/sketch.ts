@@ -39,6 +39,10 @@ const sketch = (p: p5) => {
 
         p.pop();
 	};
+
+    p.mouseReleased = () =>{
+        console.log(MinigameMaster.movement.hoveredVecs);
+    }
 };
 
 window.onload = () => {
