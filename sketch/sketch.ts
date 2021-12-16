@@ -23,7 +23,7 @@ const sketch = (p: p5) => {
         // rendering minigame scene
         if (MinigameMaster.puzzleIsReady) MinigameMaster.render(p);
         else MinigameMaster.generatePuzzle(p); 
-
+        
 		
 
 

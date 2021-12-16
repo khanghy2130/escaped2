@@ -2,7 +2,7 @@ const MAIN_THEME: {LIGHT: number, DARK: number} = {
     LIGHT: 240, DARK: 30
 };
 const SCALINGS = {
-	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
+	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 47.0
 };
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3)/2,
