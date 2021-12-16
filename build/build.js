@@ -46,6 +46,11 @@ const PUZZLE_MAPS = {
             [3, -2], [3, -3], [-2, 2], [-2, 3], [2, -2], [2, -3], [-2, 4], [2, 2]
         ] }
 };
+const BLOCKER_COLORS = [
+    [0, 130, 210],
+    [180, 50, 230],
+    [230, 0, 80]
+];
 const MinigameMaster = {
     tt: "SQUARE",
     blockersAmount: 5,
@@ -157,14 +162,26 @@ const MinigameMaster = {
         MinigameMaster.mapTileKeys.forEach((tileKey) => {
             renderTile(p, MinigameMaster.mapTiles[tileKey]);
         });
-        p.fill(230, 0, 0);
-        renderTile(p, MinigameMaster.startingTile);
-        p.textSize(30);
+        p.fill(230);
+        renderTransitionalTile({
+            p: p, tile: MinigameMaster.startingTile,
+            renderPos: null, scaleValue: 0.8, rotateValue: 0,
+            extraRender: null
+        });
+        p.textSize(36);
+        p.noStroke();
         MinigameMaster.blockersList.forEach((b) => {
-            p.fill(MAIN_THEME.LIGHT);
-            renderTile(p, b.tile);
-            p.fill(MAIN_THEME.DARK);
-            p.text(b.weight, b.tile.renderPos[0], b.tile.renderPos[1]);
+            p.fill(BLOCKER_COLORS[b.weight - 1]);
+            renderTransitionalTile({
+                p: p, tile: b.tile,
+                renderPos: null, scaleValue: 0.8, rotateValue: 0,
+                extraRender: () => {
+                    if (b.tile.tt === "TRIANGLE" && !b.tile.isUpward)
+                        p.rotate(180);
+                    p.fill(MAIN_THEME.LIGHT);
+                    p.text(b.weight, 0, 0);
+                }
+            });
         });
     }
 };
@@ -258,6 +275,7 @@ const sketch = (p) => {
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
         p.textFont("monospace");
+        p.angleMode(p.DEGREES);
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
         MinigameMaster.setUpPuzzle(7, l[p.floor(p.random(0, 3))], p);
     };
@@ -296,6 +314,7 @@ class Square_Tile {
         this.renderPos = [0, 0];
         this.neighbors = {};
         this.verticesList = [];
+        this.tt = "SQUARE";
         const [x, y] = pos;
         this.pos = [x, y];
         setUpNeighbors(this, [[1, 0], [0, 1], [-1, 0], [0, -1]]);
@@ -319,6 +338,7 @@ class Hexagon_Tile {
         this.renderPos = [0, 0];
         this.neighbors = {};
         this.verticesList = [];
+        this.tt = "HEXAGON";
         const [x, y] = pos;
         this.pos = [x, y];
         setUpNeighbors(this, [[1, 0], [0, 1], [-1, 0], [0, -1], [-1, 1], [1, -1]]);
@@ -345,6 +365,7 @@ class Triangle_Tile {
         this.neighbors = {};
         this.verticesList = [];
         this.isUpward = false;
+        this.tt = "TRIANGLE";
         const [x, y] = pos;
         this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
@@ -378,13 +399,32 @@ class Triangle_Tile {
         }
     }
 }
+const CENTER_TILES = {
+    SQUARE: new Square_Tile([0, 0]),
+    HEXAGON: new Hexagon_Tile([0, 0]),
+    TRIANGLE: new Triangle_Tile([0, 0])
+};
+CENTER_TILES.TRIANGLE.renderPos = [0, 0];
+CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
+    vertex[1] -= CONSTANTS.TRIANGLE_HEIGHT - (2 * CONSTANTS.TRIANGLE_CENTER_Y);
+});
 function renderTile(p, tile) {
     p.beginShape();
     tile.verticesList.forEach(vPos => p.vertex(vPos[0], vPos[1]));
     p.endShape(p.CLOSE);
+}
+function renderTransitionalTile(props) {
+    let { p, tile, renderPos, scaleValue, rotateValue, extraRender } = props;
+    renderPos = renderPos || tile.renderPos;
     p.push();
-    p.fill(MAIN_THEME.LIGHT);
-    p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
+    p.translate(renderPos[0], renderPos[1]);
+    p.scale(scaleValue);
+    p.rotate(rotateValue);
+    if (tile.tt === "TRIANGLE" && !tile.isUpward)
+        p.rotate(180);
+    renderTile(p, CENTER_TILES[tile.tt]);
+    if (extraRender)
+        extraRender();
     p.pop();
 }
 function setUpNeighbors(tile, vectorsList) {

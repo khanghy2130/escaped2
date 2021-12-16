@@ -9,6 +9,7 @@ const sketch = (p: p5) => {
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
         p.textFont("monospace");
+        p.angleMode(p.DEGREES);
 
         const l: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
         MinigameMaster.setUpPuzzle(7, l[p.floor(p.random(0,3))] , p);

@@ -25,6 +25,7 @@ interface NeighborObject {
     tile: Tile, isEdge: boolean, isWalled: boolean
 }
 interface Tile {
+    tt: Tile_Type;
 	pos: Position2D;
 	renderPos: Position2D;
 	neighbors: {[keys: string]: NeighborObject};
@@ -35,12 +36,14 @@ interface Tile {
 
 
 class Square_Tile implements Tile {
+    tt: "SQUARE";
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
+        this.tt = "SQUARE";
         const [x, y] = pos;
 		this.pos = [x, y];
         setUpNeighbors(this, [[1,0], [0,1], [-1,0], [0,-1]]);
@@ -61,12 +64,14 @@ class Square_Tile implements Tile {
 }
 
 class Hexagon_Tile implements Tile {
+    tt: "HEXAGON";
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
 
 	constructor (pos: Position2D){
+        this.tt = "HEXAGON";
         const [x, y] = pos;
 		this.pos = [x, y];
         setUpNeighbors(this, [[1,0], [0,1], [-1,0], [0,-1], [-1,1], [1,-1]]);
@@ -89,6 +94,7 @@ class Hexagon_Tile implements Tile {
 }
 
 class Triangle_Tile implements Tile {
+    tt: "TRIANGLE";
 	pos: Position2D = [0,0];
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: NeighborObject} = {};
@@ -96,6 +102,7 @@ class Triangle_Tile implements Tile {
     isUpward: boolean = false;
 
 	constructor (pos: Position2D){
+        this.tt = "TRIANGLE";
         const [x, y] = pos;
 		this.pos = [x, y];
         this.isUpward = (x + y) % 2 === 0;
@@ -130,7 +137,16 @@ class Triangle_Tile implements Tile {
 	}
 }
 
-
+// set up for transitional rendering, also fix triangle
+const CENTER_TILES: {[keys:string]: Tile} = {
+    SQUARE: new Square_Tile([0,0]),
+    HEXAGON: new Hexagon_Tile([0,0]),
+    TRIANGLE: new Triangle_Tile([0,0])
+};
+CENTER_TILES.TRIANGLE.renderPos = [0,0];
+CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
+    vertex[1] -= CONSTANTS.TRIANGLE_HEIGHT - (2 * CONSTANTS.TRIANGLE_CENTER_Y);
+});
 
 
 function renderTile(p: p5, tile: Tile): void {
@@ -139,9 +155,29 @@ function renderTile(p: p5, tile: Tile): void {
 	p.endShape(p.CLOSE);
 
     ////////////////
+    // p.push();
+    // p.fill(MAIN_THEME.LIGHT);
+    // p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
+    // p.pop();
+}
+
+interface RenderTransitionalTileProps {
+    p: p5, tile: Tile, renderPos: Position2D, 
+    scaleValue: number, rotateValue: number,
+    extraRender: ()=>void
+}
+function renderTransitionalTile(props: RenderTransitionalTileProps): void{
+    let {p, tile, renderPos, scaleValue, rotateValue, extraRender} = props;
+    renderPos = renderPos || tile.renderPos;
+
     p.push();
-    p.fill(MAIN_THEME.LIGHT);
-    p.text(tile.pos, tile.renderPos[0], tile.renderPos[1]);
+    p.translate(renderPos[0], renderPos[1]);
+    p.scale(scaleValue);
+    p.rotate(rotateValue);
+
+    if (tile.tt === "TRIANGLE" && !tile.isUpward) p.rotate(180);
+    renderTile(p, CENTER_TILES[tile.tt]);
+    if (extraRender) extraRender();
     p.pop();
 }
 

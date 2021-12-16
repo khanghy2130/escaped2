@@ -48,6 +48,11 @@ const PUZZLE_MAPS: {[keys: string]: {
         [3,-2], [3,-3], [-2, 2], [-2, 3], [2,-2], [2,-3], [-2,4], [2,2]
     ]} // 40
 };
+const BLOCKER_COLORS: ([number,number,number])[] = [
+    [0, 130, 210],
+    [180, 50, 230],
+    [230, 0, 80]
+];
 
 interface DUMMY_BLOCKER { renderPos: Position2D, rotation: number }
 interface BLOCKER {weight: 1|2|3, tile: Tile}
@@ -223,16 +228,27 @@ const MinigameMaster: MM_TYPE = {
         });
 
         // renders starting pos
-        p.fill(230,0,0);
-        renderTile(p, MinigameMaster.startingTile);
+        p.fill(230);
+        renderTransitionalTile({
+            p: p, tile: MinigameMaster.startingTile,
+            renderPos: null, scaleValue: 0.8, rotateValue: 0,
+            extraRender: null
+        });
 
         // renders blockers
-        p.textSize(30);
+        p.textSize(36);
+        p.noStroke();
         MinigameMaster.blockersList.forEach((b:BLOCKER) => {
-            p.fill(MAIN_THEME.LIGHT);
-            renderTile(p, b.tile);
-            p.fill(MAIN_THEME.DARK);
-            p.text(b.weight, b.tile.renderPos[0], b.tile.renderPos[1]);
+            p.fill(BLOCKER_COLORS[b.weight-1]);
+            renderTransitionalTile({
+                p: p, tile: b.tile,
+                renderPos: null, scaleValue: 0.8, rotateValue: 0,
+                extraRender: () => {
+                    if (b.tile.tt === "TRIANGLE" && !b.tile.isUpward) p.rotate(180);
+                    p.fill(MAIN_THEME.LIGHT);
+                    p.text(b.weight,0,0);
+                }
+            });
         });
 
         
