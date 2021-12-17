@@ -11,12 +11,6 @@ const CONSTANTS = {
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3)/2,
     TRIANGLE_CENTER_Y : SCALINGS.TRIANGLE / (Math.sqrt(3)*2)
 };
-////////type DIR_DEGREE = 0 | 30 | 90 | 150 | 180 | 210 | 270 | 330;
-// const DIR_DEGREES: ({[keys: string]: DIR_DEGREE[]}) = {
-//     TRIANGLE: [30, 90, 150, 210, 270, 330],
-//     SQUARE: [0, 90, 180, 270],
-//     HEXAGON: [30, 90, 150, 210, 270, 330]
-// };
 
 type Tile_Type = "TRIANGLE" | "SQUARE" | "HEXAGON";
 type Position2D = [number, number];

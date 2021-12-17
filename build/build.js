@@ -63,7 +63,7 @@ const PUZZLE_CONSTANTS = {
     DIFFICULTY_2: 7,
     DIFFICULTY_3: 9,
     REMINDER_SCALE_MAX: 50,
-    REMINDER_TRIGGER_POINT: -200,
+    REMINDER_TRIGGER_POINT: -300,
     MOVE_DURATION: 10
 };
 const MinigameMaster = {
@@ -76,6 +76,7 @@ const MinigameMaster = {
     teleporters: [null, null],
     startingTile: null,
     solution: [],
+    hasWon: false,
     puzzleIsReady: false,
     movement: {
         currentPosTile: null,
@@ -292,6 +293,13 @@ const MinigameMaster = {
                 });
             });
         }
+        // renders win text
+        if (MinigameMaster.hasWon) {
+            p.textSize(80 + p.cos(p.frameCount * 2.5) * 5);
+            p.fill(MAIN_THEME.LIGHT);
+            p.noStroke();
+            p.text("ALL\nBLOCKERS\nDEFEATED", 0, 0);
+        }
         // renders blockers
         p.textSize(36);
         p.noStroke();
@@ -343,6 +351,27 @@ const MinigameMaster = {
         if (MinigameMaster.teleportAnimationProgress-- > 0) {
             MinigameMaster.teleporters.forEach(t => MinigameMaster.renderEnlargingFrame(p, [230, 230, 0], t, MinigameMaster.teleportAnimationProgress));
         }
+        // renders dummy blockers (copy of blocker render)
+        MinigameMaster.dummyBlockersList = MinigameMaster.dummyBlockersList.filter(db => {
+            const bColor = PUZZLE_BLOCKER_COLORS[db.blocker.weight - 1];
+            p.fill(bColor[0], bColor[1], bColor[2]);
+            renderTransitionalTile({
+                p: p, tile: db.blocker.tile,
+                renderPos: [db.posVector.x, db.posVector.y], scaleValue: 0.8, rotateValue: db.rotation,
+                extraRender: () => {
+                    if (db.blocker.tile.tt === "TRIANGLE" && !db.blocker.tile.isUpward)
+                        p.rotate(180);
+                    p.fill(MAIN_THEME.LIGHT);
+                    p.text(db.blocker.weight, 0, 0);
+                }
+            });
+            // update
+            const gravityVector = p.createVector(0, 0.5);
+            db.velocityVector.add(gravityVector);
+            db.posVector.add(db.velocityVector);
+            db.rotation += db.rotationVel;
+            return db.posVector.y < 800;
+        });
         // update reminder
         if (!m.hoveredVecs && !m.isMoving) {
             if (m.reminderScale < PUZZLE_CONSTANTS.REMINDER_TRIGGER_POINT) {
@@ -357,15 +386,15 @@ const MinigameMaster = {
         renderTransitionalTile({
             p: p, tile: tile,
             renderPos: null,
-            scaleValue: p.map(scaleValue, PUZZLE_CONSTANTS.REMINDER_SCALE_MAX, 0, 0.8, 3.0),
+            scaleValue: p.map(scaleValue, PUZZLE_CONSTANTS.REMINDER_SCALE_MAX, 0, 0.8, 2.0),
             rotateValue: 0,
             extraRender: null
         });
     },
     renderInputInterface(p, m) {
         // check to quit on submenu ///////////////
-        if (p.mouseY < 80)
-            return; // out of board
+        if (p.mouseY < 80 || MinigameMaster.hasWon)
+            return; // out of board or won
         let currentRenderPos = m.currentPosTile.renderPos;
         let mousePos = [
             p.mouseX - 300,
@@ -457,6 +486,8 @@ const MinigameMaster = {
         m.currentPosTile = MinigameMaster.startingTile;
         m.reminderScale = 0;
         m.isMoving = false;
+        MinigameMaster.hasWon = false;
+        MinigameMaster.dummyBlockersList = [];
         MinigameMaster.moveAnimation.progress = 0;
         MinigameMaster.moveAnimation.ghostTrails = [];
         MinigameMaster.blockersList.forEach(b => b.isDestroyed = false);
@@ -498,7 +529,7 @@ function puzzleStartNextMove(p) {
         }
         return false;
     });
-    if (blocker) {
+    if (blocker && m.forceStopCountdown > 10) {
         if (blocker.weight === 1)
             m.forceStopCountdown = 2;
         else if (blocker.weight === 2)
@@ -506,9 +537,22 @@ function puzzleStartNextMove(p) {
         else if (blocker.weight === 3)
             m.forceStopCountdown = 0;
         blocker.isDestroyed = true;
+        // add to animation
+        const velocityVector = p.createVector(12 - p.sq(blocker.weight) * 0.5, 0);
+        const degIndex = getPM().dirVectors.indexOf(m.hoveredVecs);
+        velocityVector.rotate(-getPM().degreesMap[degIndex]);
+        MinigameMaster.dummyBlockersList.push({
+            blocker: blocker, rotation: 0,
+            rotationVel: (4 - blocker.weight) * 0.8 * (p.random() > 0.5 ? 1 : -1),
+            posVector: p.createVector(blocker.tile.renderPos[0], blocker.tile.renderPos[1]),
+            velocityVector: velocityVector
+        });
+        // check win
+        MinigameMaster.hasWon = MinigameMaster.blockersList.every(b => b.isDestroyed);
     }
     // check if time to stop
     if (m.forceStopCountdown <= 0) {
+        m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
         m.isMoving = false;
         m.forceStopCountdown = 100;
     }
@@ -647,7 +691,7 @@ const sketch = (p) => {
         p.textFont("monospace");
         p.angleMode(p.DEGREES);
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_2, l[p.floor(p.random(0, 3))], p);
+        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, l[p.floor(p.random(0, 3))], p);
     };
     p.draw = () => {
         p.push();
