@@ -1,5 +1,5 @@
 const PUZZLE_MAPS = {
-    TRIANGLE: { yPos: 320,
+    TRIANGLE: { yPos: 320, rotateMax: 60,
         dirVectors: [
             [[0, 1], [1, 0]],
             [[0, 1], [-1, 0]],
@@ -17,7 +17,7 @@ const PUZZLE_MAPS = {
             [1, -1], [2, -1], [3, -1], [4, -1], [-1, -1], [-2, -1], [-3, -1], [-4, -1],
             [1, -2], [2, -2], [3, -2], [4, -2], [-1, -2], [-2, -2], [-3, -2], [-4, -2]
         ] },
-    SQUARE: { yPos: 290,
+    SQUARE: { yPos: 290, rotateMax: 90,
         dirVectors: [
             [[0, 1]],
             [[0, -1]],
@@ -34,7 +34,7 @@ const PUZZLE_MAPS = {
             [1, -2], [2, -2], [3, -2], [-1, -2], [-2, -2], [-3, -2],
             [1, 3], [2, 3], [3, 3], [-1, 3], [-2, 3], [-3, 3]
         ] },
-    HEXAGON: { yPos: 310,
+    HEXAGON: { yPos: 310, rotateMax: 60,
         dirVectors: [
             [[1, 0]],
             [[0, 1]],
@@ -58,7 +58,14 @@ const PUZZLE_BLOCKER_COLORS = [
     [180, 50, 230],
     [230, 0, 80]
 ];
-const PUZZLE_DIFFICULTIES = [5, 7, 9];
+const PUZZLE_CONSTANTS = {
+    DIFFICULTY_1: 5,
+    DIFFICULTY_2: 7,
+    DIFFICULTY_3: 9,
+    REMINDER_SCALE_MAX: 50,
+    REMINDER_TRIGGER_POINT: -200,
+    MOVE_DURATION: 10
+};
 const MinigameMaster = {
     tt: "SQUARE",
     blockersAmount: 5,
@@ -74,11 +81,12 @@ const MinigameMaster = {
         currentPosTile: null,
         hoveredVecs: null,
         isMoving: false,
+        forceStopCountdown: 100,
         destinationTile: null,
         reminderScale: 0
     },
     dummyBlockersList: [],
-    teleportAnimation: { tilePos: null, progress: 0 },
+    teleportAnimationProgress: 0,
     moveAnimation: { progress: 0, ghostTrails: [] },
     // setting up but not generating puzzle
     setUpPuzzle: function (blockersAmount, tt, p) {
@@ -112,7 +120,7 @@ const MinigameMaster = {
         MinigameMaster.blockersList = [];
         MinigameMaster.solution = [];
         // teleporters (if not first difficulty)
-        if (MinigameMaster.blockersAmount === PUZZLE_DIFFICULTIES[0]) {
+        if (MinigameMaster.blockersAmount === PUZZLE_CONSTANTS.DIFFICULTY_1) {
             MinigameMaster.teleporters = [null, null];
         }
         else {
@@ -240,13 +248,7 @@ const MinigameMaster = {
         else { // success
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
             MinigameMaster.puzzleIsReady = true;
-            MinigameMaster.movement = {
-                currentPosTile: MinigameMaster.startingTile,
-                hoveredVecs: null,
-                isMoving: false,
-                destinationTile: null,
-                reminderScale: 0
-            };
+            MinigameMaster.reset();
             console.log("solution:");
             MinigameMaster.solution.forEach((s) => {
                 console.log(s);
@@ -254,8 +256,10 @@ const MinigameMaster = {
         }
     },
     render: function (p) {
+        const m = MinigameMaster.movement;
         // reset
-        MinigameMaster.movement.hoveredVecs = null;
+        if (!m.isMoving)
+            m.hoveredVecs = null;
         p.translate(300, getPM().yPos); // moves the map
         // renders map
         p.stroke(MAIN_THEME.LIGHT);
@@ -292,6 +296,8 @@ const MinigameMaster = {
         p.textSize(36);
         p.noStroke();
         MinigameMaster.blockersList.forEach((b) => {
+            if (b.isDestroyed)
+                return;
             const bColor = PUZZLE_BLOCKER_COLORS[b.weight - 1];
             p.fill(bColor[0], bColor[1], bColor[2]);
             renderTransitionalTile({
@@ -306,39 +312,60 @@ const MinigameMaster = {
             });
         });
         // renders player
+        let playerRenderPos, playerRotateValue = 0;
+        if (m.isMoving && m.destinationTile && MinigameMaster.moveAnimation.progress >= 0) {
+            playerRenderPos = [
+                p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, m.currentPosTile.renderPos[0], m.destinationTile.renderPos[0]),
+                p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, m.currentPosTile.renderPos[1], m.destinationTile.renderPos[1])
+            ];
+            playerRotateValue = p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, 0, getPM().rotateMax);
+        }
         renderPlayer([230, 230, 230], [10, 10, 10], {
-            p: p, tile: MinigameMaster.startingTile,
-            renderPos: null, scaleValue: 0.8, rotateValue: 0,
+            p: p, tile: m.currentPosTile,
+            renderPos: playerRenderPos, scaleValue: 0.8, rotateValue: playerRotateValue,
             extraRender: null
         });
-        // renders input interface
-        const m = MinigameMaster.movement;
-        MinigameMaster.renderInputInterface(p, m);
-        // renders input zone reminder
-        const REMINDER_SCALE_MAX = 100;
-        const REMINDER_TRIGGER_POINT = -100;
-        if (m.reminderScale-- > 0) {
-            p.noFill();
-            p.stroke(230, 230, 230, p.map(m.reminderScale, REMINDER_SCALE_MAX, 0, 255, 0));
-            p.strokeWeight(2);
-            renderTransitionalTile({
-                p: p, tile: m.currentPosTile,
-                renderPos: null,
-                scaleValue: p.map(m.reminderScale, REMINDER_SCALE_MAX, 0, 0.8, 3.0),
-                rotateValue: 0,
-                extraRender: null
-            });
+        // update movement animation
+        if (m.isMoving) {
+            const ma = MinigameMaster.moveAnimation;
+            if (ma.progress-- <= 1) { // done? finish moving
+                m.currentPosTile = m.destinationTile;
+                puzzleStartNextMove(p);
+            }
         }
+        else
+            MinigameMaster.renderInputInterface(p, m); // input interface
+        // renders input zone reminder
+        if (m.reminderScale-- > 0) {
+            MinigameMaster.renderEnlargingFrame(p, [230, 230, 230], m.currentPosTile, m.reminderScale);
+        }
+        // renders teleport effect
+        if (MinigameMaster.teleportAnimationProgress-- > 0) {
+            MinigameMaster.teleporters.forEach(t => MinigameMaster.renderEnlargingFrame(p, [230, 230, 0], t, MinigameMaster.teleportAnimationProgress));
+        }
+        // update reminder
         if (!m.hoveredVecs && !m.isMoving) {
-            if (m.reminderScale < REMINDER_TRIGGER_POINT)
-                m.reminderScale = REMINDER_SCALE_MAX;
+            if (m.reminderScale < PUZZLE_CONSTANTS.REMINDER_TRIGGER_POINT) {
+                m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
+            }
         }
     },
+    renderEnlargingFrame(p, colorValue, tile, scaleValue) {
+        p.noFill();
+        p.stroke(colorValue[0], colorValue[1], colorValue[2], p.map(scaleValue, PUZZLE_CONSTANTS.REMINDER_SCALE_MAX, 0, 255, 0));
+        p.strokeWeight(2);
+        renderTransitionalTile({
+            p: p, tile: tile,
+            renderPos: null,
+            scaleValue: p.map(scaleValue, PUZZLE_CONSTANTS.REMINDER_SCALE_MAX, 0, 0.8, 3.0),
+            rotateValue: 0,
+            extraRender: null
+        });
+    },
     renderInputInterface(p, m) {
-        // check to quit (on submenu, isMoving, out of board mouse is not close enough)
-        ////////////////
+        // check to quit on submenu ///////////////
         if (p.mouseY < 80)
-            return; // out of board;
+            return; // out of board
         let currentRenderPos = m.currentPosTile.renderPos;
         let mousePos = [
             p.mouseX - 300,
@@ -389,11 +416,14 @@ const MinigameMaster = {
             const greenColor = p.color(0, 230, 0);
             const destinationTile = slideInfo.tilesList[slideInfo.tilesList.length - 1];
             const isOutOfBound = slideInfo.hitEdgeTile === destinationTile;
+            if (isOutOfBound)
+                m.hoveredVecs = null; // invalid move
             // renders move line
             if (isOutOfBound)
                 p.stroke(redColor);
             else
                 p.stroke(greenColor);
+            p.strokeWeight(6);
             let previousTile = m.currentPosTile;
             slideInfo.tilesList.forEach((pathTile) => {
                 // draw line if both previous and current tiles are not teleporters
@@ -412,10 +442,82 @@ const MinigameMaster = {
             renderTile(p, destinationTile);
         }
     },
+    mouseReleased(p) {
+        // start moving if not moving and valid move
+        const m = MinigameMaster.movement;
+        if (!m.isMoving && m.hoveredVecs)
+            puzzleStartNextMove(p);
+        // check button clicks ///
+    },
     getRandomTile(p) {
         return MinigameMaster.mapTiles[MinigameMaster.mapTileKeys[p.floor(p.random(0, MinigameMaster.mapTileKeys.length))]];
+    },
+    reset() {
+        const m = MinigameMaster.movement;
+        m.currentPosTile = MinigameMaster.startingTile;
+        m.reminderScale = 0;
+        m.isMoving = false;
+        MinigameMaster.moveAnimation.progress = 0;
+        MinigameMaster.moveAnimation.ghostTrails = [];
+        MinigameMaster.blockersList.forEach(b => b.isDestroyed = false);
     }
 };
+function puzzleStartNextMove(p) {
+    const m = MinigameMaster.movement;
+    // if current pos is teleporter then teleport
+    MinigameMaster.teleporters.some((t, index) => {
+        if (t === m.currentPosTile) {
+            const otherTeleporter = MinigameMaster.teleporters[index === 0 ? 1 : 0];
+            m.currentPosTile = otherTeleporter;
+            MinigameMaster.teleportAnimationProgress = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
+            return true;
+        }
+        return false;
+    });
+    // go thru all vecs to check if that destination tile exists (triangle case)
+    m.hoveredVecs.some(vec => {
+        const newPos = [
+            vec[0] + m.currentPosTile.pos[0],
+            vec[1] + m.currentPosTile.pos[1]
+        ];
+        const neighbor = m.currentPosTile.neighbors[posToKey(newPos)];
+        if (neighbor && neighbor.tile) {
+            m.destinationTile = neighbor.tile;
+            return true;
+        }
+        return false;
+    });
+    if (m.destinationTile === null)
+        throw "destination tile is null when starting next move";
+    // if hitting a blocker then set forcestop
+    let blocker;
+    MinigameMaster.blockersList.some((b) => {
+        if (m.destinationTile === b.tile && !b.isDestroyed) {
+            blocker = b;
+            return true;
+        }
+        return false;
+    });
+    if (blocker) {
+        if (blocker.weight === 1)
+            m.forceStopCountdown = 2;
+        else if (blocker.weight === 2)
+            m.forceStopCountdown = 1;
+        else if (blocker.weight === 3)
+            m.forceStopCountdown = 0;
+        blocker.isDestroyed = true;
+    }
+    // check if time to stop
+    if (m.forceStopCountdown <= 0) {
+        m.isMoving = false;
+        m.forceStopCountdown = 100;
+    }
+    else {
+        m.forceStopCountdown--;
+        m.isMoving = true;
+        MinigameMaster.moveAnimation.progress = PUZZLE_CONSTANTS.MOVE_DURATION;
+    }
+}
 function getPM() {
     return PUZZLE_MAPS[MinigameMaster.tt];
 }
@@ -464,13 +566,7 @@ ignoreBlocker // for input preview (add teleporter tiles too)
         hitBlocker: null,
         hitEdgeTile: null
     };
-    let ccc = 0;
     while (true) {
-        if (ccc++ > 10000) {
-            console.log(MinigameMaster);
-            debugger;
-        }
-        ;
         // vec1
         const vec1Pos = [
             currentTile.pos[0] + vec1[0],
@@ -551,7 +647,7 @@ const sketch = (p) => {
         p.textFont("monospace");
         p.angleMode(p.DEGREES);
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_DIFFICULTIES[1], l[p.floor(p.random(0, 3))], p);
+        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_2, l[p.floor(p.random(0, 3))], p);
     };
     p.draw = () => {
         p.push();
@@ -572,7 +668,9 @@ const sketch = (p) => {
         p.pop();
     };
     p.mouseReleased = () => {
-        console.log(MinigameMaster.movement.hoveredVecs);
+        // mini game scene
+        if (MinigameMaster.puzzleIsReady)
+            MinigameMaster.mouseReleased(p);
     };
 };
 window.onload = () => {
