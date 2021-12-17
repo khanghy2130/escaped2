@@ -80,6 +80,7 @@ interface DUMMY_PUZZLE_BLOCKER {
 }
 interface PUZZLE_BLOCKER {weight: 1|2|3, tile: Tile, isDestroyed?: boolean}
 interface GenerationStep {tile: Tile, blocker: PUZZLE_BLOCKER, vecs: Position2D[]}
+type PUZZLE_MODAL_CONTENT = "HELP" | "SOLUTION" | "NEW PUZZLE"; 
 interface MM_TYPE {
     // main data
     tt: Tile_Type;
@@ -108,12 +109,19 @@ interface MM_TYPE {
     teleportAnimationProgress: number,
     moveAnimation: {progress: number, ghostTrails: GhostTrail[]},
 
+    // buttons
+    modal: {isOpen: boolean, content: PUZZLE_MODAL_CONTENT, 
+    contentIndex: number, btns: {[keys:string]:Button}},
+    mainBtns: Button[],
+
+
     // methods
     setUpPuzzle: (blockersAmount: number, tt: Tile_Type, p: p5) => void;
     generatePuzzle: (p: p5) => void;
     render: (p: p5)=>void;
     renderEnlargingFrame: (p:p5, colorValue: number[], tile: Tile, scaleValue: number)=>void;
     renderInputInterface: (p: p5, m: MM_TYPE["movement"])=>void;
+    renderModal: (p: p5)=>void;
     mouseReleased: (p: p5)=>void;
     getRandomTile: (p: p5)=>Tile;
     reset: ()=>void;
@@ -143,6 +151,9 @@ const MinigameMaster: MM_TYPE = {
     dummyBlockersList: [],
     teleportAnimationProgress: 0,
     moveAnimation: {progress: 0, ghostTrails: []},
+
+    modal: {isOpen: false, content: null, contentIndex: 0, btns: {}},
+    mainBtns: [],
 
     // setting up but not generating puzzle
     setUpPuzzle: function(blockersAmount: number, tt: Tile_Type, p: p5):void{
@@ -329,6 +340,17 @@ const MinigameMaster: MM_TYPE = {
         const m: MM_TYPE["movement"] = MinigameMaster.movement;
         // reset
         if (!m.isMoving) m.hoveredVecs = null;
+        Object.keys(MinigameMaster.modal.btns).forEach(function(btnKey){
+            const btn: Button = MinigameMaster.modal.btns[btnKey];
+            btn.isHovered = false; // reset
+        });
+
+        // renders main buttons
+        p.strokeWeight(2);
+        MinigameMaster.mainBtns.forEach(function(btn){
+			btn.isHovered = false; // reset
+			btn.draw(p);
+		});
 
         p.translate(300, getPM().yPos); // moves the map
         // renders map
@@ -464,6 +486,9 @@ const MinigameMaster: MM_TYPE = {
                 m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
             }
         }
+
+        p.translate(-300, -getPM().yPos); // undo
+        MinigameMaster.renderModal(p);
     },
 
     renderEnlargingFrame(p:p5, colorValue: number[], tile: Tile, scaleValue: number):void{
@@ -484,7 +509,7 @@ const MinigameMaster: MM_TYPE = {
     },
 
     renderInputInterface(p:p5, m: MM_TYPE["movement"]):void{
-        // check to quit on submenu ///////////////
+        if (MinigameMaster.modal.isOpen) return; // modal is open
         if (p.mouseY < 80 || MinigameMaster.hasWon) return; // out of board or won
 
         let currentRenderPos: Position2D = m.currentPosTile.renderPos;
@@ -570,14 +595,87 @@ const MinigameMaster: MM_TYPE = {
         }
     },
 
+    renderModal(p:p5):void{
+        const modal: MM_TYPE["modal"] = MinigameMaster.modal;
+        if (!modal.isOpen) return;
+
+        // dark overlay
+        p.fill(0,0,0, 200);
+        p.rect(300, 300, 700, 700);
+
+        // content
+        if (modal.content === "HELP"){
+            if (modal.contentIndex === 1){
+                p.fill("red"); p.circle(300,300,100);
+            } else if (modal.contentIndex === 2){
+                p.fill("blue"); p.circle(300,300,100);
+            } else if (modal.contentIndex === 3){
+                p.fill("green"); p.circle(300,300,100);
+            } else if (modal.contentIndex === 4){
+                p.fill("yellow"); p.circle(300,300,100);
+            }
+        } else if (modal.content === "SOLUTION"){
+            p.textSize(36);
+            p.fill(MAIN_THEME.LIGHT);
+            p.noStroke();
+            if (modal.contentIndex === 0){ // sure1
+                p.text(
+                    "Are you sure that you have given up on the pride of solving the puzzle on your own?",
+                    300, 150, 500
+                );
+                modal.btns["solution,1,yes"].draw(p);
+                modal.btns["solution,1,no"].draw(p);
+            } else if (modal.contentIndex === 1){ // sure2
+                p.text("Are you absolutely sure?",
+                300, 150);
+                for (let noY=0; noY < 4; noY++){
+                    for (let noX=0; noX < 4; noX++){
+                        modal.btns["solution,2,btn,"+noX+noY].draw(p);
+                    }
+                }
+            }  else if (modal.contentIndex === 2){ // solution
+                
+            }
+        } else if (modal.content === "NEW PUZZLE"){
+            ////
+        }
+    },
+
     mouseReleased(p:p5): void{
         // start moving if not moving and valid move
         const m: MM_TYPE["movement"] = MinigameMaster.movement;
-        if (!m.isMoving && m.hoveredVecs) puzzleStartNextMove(p);
+        if (!m.isMoving && m.hoveredVecs) {
+            puzzleStartNextMove(p);
+            return;
+        }
 
+        // check button clicks
+        MinigameMaster.mainBtns.some(function(btn){
+			if (btn.isHovered) btn.action();
+            return btn.isHovered;
+		});
 
+        // check modal clicks
+        const modal: MM_TYPE["modal"] = MinigameMaster.modal;
+        if (modal.isOpen){
+            if (modal.content === "HELP"){
+                modal.contentIndex++;
+                if (modal.contentIndex > 4) modal.isOpen = false;
+                return;
+            } else if (modal.content === "SOLUTION"){
+                // close modal on last content page
+                if (modal.contentIndex === 2) modal.isOpen = false;
+            } else if (modal.content === "NEW PUZZLE"){
+                //////
+            }
 
-        // check button clicks ///
+            // check modal buttons
+            Object.keys(modal.btns).some(function(btnKey){
+                const btn: Button = modal.btns[btnKey];
+                if (btn.isHovered) btn.action();
+                return btn.isHovered;
+            });
+        }
     },
 
     getRandomTile(p:p5):Tile{
@@ -596,6 +694,7 @@ const MinigameMaster: MM_TYPE = {
         MinigameMaster.moveAnimation.progress = 0;
         MinigameMaster.moveAnimation.ghostTrails = [];
         MinigameMaster.blockersList.forEach(b=>b.isDestroyed = false);
+        MinigameMaster.modal.isOpen = false;
     }
 };
 

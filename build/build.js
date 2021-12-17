@@ -89,6 +89,8 @@ const MinigameMaster = {
     dummyBlockersList: [],
     teleportAnimationProgress: 0,
     moveAnimation: { progress: 0, ghostTrails: [] },
+    modal: { isOpen: false, content: null, contentIndex: 0, btns: {} },
+    mainBtns: [],
     // setting up but not generating puzzle
     setUpPuzzle: function (blockersAmount, tt, p) {
         // set up mapTiles, mapTilesKeys, tt
@@ -261,6 +263,16 @@ const MinigameMaster = {
         // reset
         if (!m.isMoving)
             m.hoveredVecs = null;
+        Object.keys(MinigameMaster.modal.btns).forEach(function (btnKey) {
+            const btn = MinigameMaster.modal.btns[btnKey];
+            btn.isHovered = false; // reset
+        });
+        // renders main buttons
+        p.strokeWeight(2);
+        MinigameMaster.mainBtns.forEach(function (btn) {
+            btn.isHovered = false; // reset
+            btn.draw(p);
+        });
         p.translate(300, getPM().yPos); // moves the map
         // renders map
         p.stroke(MAIN_THEME.LIGHT);
@@ -378,6 +390,8 @@ const MinigameMaster = {
                 m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
             }
         }
+        p.translate(-300, -getPM().yPos); // undo
+        MinigameMaster.renderModal(p);
     },
     renderEnlargingFrame(p, colorValue, tile, scaleValue) {
         p.noFill();
@@ -392,7 +406,8 @@ const MinigameMaster = {
         });
     },
     renderInputInterface(p, m) {
-        // check to quit on submenu ///////////////
+        if (MinigameMaster.modal.isOpen)
+            return; // modal is open
         if (p.mouseY < 80 || MinigameMaster.hasWon)
             return; // out of board or won
         let currentRenderPos = m.currentPosTile.renderPos;
@@ -471,12 +486,94 @@ const MinigameMaster = {
             renderTile(p, destinationTile);
         }
     },
+    renderModal(p) {
+        const modal = MinigameMaster.modal;
+        if (!modal.isOpen)
+            return;
+        // dark overlay
+        p.fill(0, 0, 0, 200);
+        p.rect(300, 300, 700, 700);
+        // content
+        if (modal.content === "HELP") {
+            if (modal.contentIndex === 1) {
+                p.fill("red");
+                p.circle(300, 300, 100);
+            }
+            else if (modal.contentIndex === 2) {
+                p.fill("blue");
+                p.circle(300, 300, 100);
+            }
+            else if (modal.contentIndex === 3) {
+                p.fill("green");
+                p.circle(300, 300, 100);
+            }
+            else if (modal.contentIndex === 4) {
+                p.fill("yellow");
+                p.circle(300, 300, 100);
+            }
+        }
+        else if (modal.content === "SOLUTION") {
+            p.textSize(36);
+            p.fill(MAIN_THEME.LIGHT);
+            p.noStroke();
+            if (modal.contentIndex === 0) { // sure1
+                p.text("Are you sure that you have given up on the pride of solving the puzzle on your own?", 300, 150, 500);
+                modal.btns["solution,1,yes"].draw(p);
+                modal.btns["solution,1,no"].draw(p);
+            }
+            else if (modal.contentIndex === 1) { // sure2
+                p.text("Are you absolutely sure?", 300, 150);
+                for (let noY = 0; noY < 4; noY++) {
+                    for (let noX = 0; noX < 4; noX++) {
+                        modal.btns["solution,2,btn," + noX + noY].draw(p);
+                    }
+                }
+            }
+            else if (modal.contentIndex === 2) { // solution
+            }
+        }
+        else if (modal.content === "NEW PUZZLE") {
+            ////
+        }
+    },
     mouseReleased(p) {
         // start moving if not moving and valid move
         const m = MinigameMaster.movement;
-        if (!m.isMoving && m.hoveredVecs)
+        if (!m.isMoving && m.hoveredVecs) {
             puzzleStartNextMove(p);
-        // check button clicks ///
+            return;
+        }
+        // check button clicks
+        MinigameMaster.mainBtns.some(function (btn) {
+            if (btn.isHovered)
+                btn.action();
+            return btn.isHovered;
+        });
+        // check modal clicks
+        const modal = MinigameMaster.modal;
+        if (modal.isOpen) {
+            if (modal.content === "HELP") {
+                modal.contentIndex++;
+                if (modal.contentIndex > 4)
+                    modal.isOpen = false;
+                return;
+            }
+            else if (modal.content === "SOLUTION") {
+                // close modal on last content page
+                if (modal.contentIndex === 2)
+                    modal.isOpen = false;
+            }
+            else if (modal.content === "NEW PUZZLE") {
+                //////
+            }
+            // check modal buttons
+            Object.keys(modal.btns).some(function (btnKey) {
+                const btn = modal.btns[btnKey];
+                if (btn.isHovered)
+                    btn.action();
+                return btn.isHovered;
+            });
+        }
     },
     getRandomTile(p) {
         return MinigameMaster.mapTiles[MinigameMaster.mapTileKeys[p.floor(p.random(0, MinigameMaster.mapTileKeys.length))]];
@@ -491,6 +588,7 @@ const MinigameMaster = {
         MinigameMaster.moveAnimation.progress = 0;
         MinigameMaster.moveAnimation.ghostTrails = [];
         MinigameMaster.blockersList.forEach(b => b.isDestroyed = false);
+        MinigameMaster.modal.isOpen = false;
     }
 };
 function puzzleStartNextMove(p) {
@@ -690,6 +788,50 @@ const sketch = (p) => {
         p.textAlign(p.CENTER, p.CENTER);
         p.textFont("monospace");
         p.angleMode(p.DEGREES);
+        // set up puzzle main buttons
+        const mainBtnsDoCheckHover = () => !MinigameMaster.modal.isOpen;
+        const modal = MinigameMaster.modal;
+        MinigameMaster.mainBtns = [
+            new Button("Help", 80, 40, 130, 40, 22, () => {
+                modal.isOpen = true;
+                modal.content = "HELP";
+                modal.contentIndex = 0;
+            }, mainBtnsDoCheckHover),
+            new Button("Reset", 220, 40, 130, 40, 22, () => {
+                MinigameMaster.reset();
+            }, mainBtnsDoCheckHover),
+            new Button("Solution", 380, 40, 130, 40, 18, () => {
+                modal.isOpen = true;
+                modal.content = "SOLUTION";
+                modal.contentIndex = 0;
+            }, mainBtnsDoCheckHover),
+            new Button("New Puzzle", 520, 40, 130, 40, 18, () => {
+                modal.isOpen = true;
+                modal.content = "NEW PUZZLE";
+            }, mainBtnsDoCheckHover)
+        ];
+        // set up puzzle modal buttons
+        const yesAction = () => modal.contentIndex++;
+        const noAction = () => modal.isOpen = false;
+        modal.btns["solution,1,yes"] = new Button("Yes", 200, 400, 100, 60, 30, yesAction);
+        modal.btns["solution,1,no"] = new Button("No", 400, 400, 100, 60, 30, noAction);
+        const yesX = p.floor(p.random(1, 3)), yesY = p.floor(p.random(1, 3));
+        for (let noY = 0; noY < 4; noY++) {
+            for (let noX = 0; noX < 4; noX++) {
+                let action;
+                let btnText;
+                if (noX === yesX && noY === yesY) {
+                    action = yesAction;
+                    btnText = "Yes";
+                }
+                else {
+                    action = noAction;
+                    btnText = "No";
+                }
+                modal.btns["solution,2,btn," + noX + noY] = new Button(btnText, 120 + noX * 120, 270 + noY * 80, 100, 60, 30, action);
+            }
+        }
+        // new puzzle buttons
         const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
         MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, l[p.floor(p.random(0, 3))], p);
     };
@@ -937,5 +1079,27 @@ function getDegree(p, centerPos, trackerPos, degreesMap) {
     });
     proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
     return degreesMap[proximities[0][1]];
+}
+class Button {
+    constructor(t, x, y, w, h, s, action, doHoverCheck) {
+        this.isHovered = false;
+        this.action = action;
+        this.draw = function (p) {
+            if (!doHoverCheck || doHoverCheck()) {
+                if (p.mouseX > x - w / 2 && p.mouseX < x + w / 2 &&
+                    p.mouseY > y - h / 2 && p.mouseY < y + h / 2) {
+                    this.isHovered = true;
+                }
+            }
+            // render
+            p.fill(this.isHovered ? MAIN_THEME.LIGHT : MAIN_THEME.DARK);
+            p.stroke(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
+            p.rect(x, y, w, h);
+            p.fill(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
+            p.noStroke();
+            p.textSize(s);
+            p.text(t, x, y);
+        };
+    }
 }
 //# sourceMappingURL=build.js.map

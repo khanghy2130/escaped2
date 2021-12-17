@@ -257,3 +257,36 @@ function getDegree(p:p5, centerPos: Position2D, trackerPos: Position2D, degreesM
     proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
     return degreesMap[proximities[0][1]];
 }
+
+
+
+class Button {
+    isHovered: boolean;
+    action: Function;
+    draw: (p: p5) => void;
+
+    constructor(t: string, x: number, y: number, 
+    w: number, h: number, s: number, action: Function, doHoverCheck?: ()=>boolean){
+        this.isHovered = false;
+        this.action = action;
+        
+        this.draw = function(p: p5){
+            if (!doHoverCheck || doHoverCheck()) {
+                if (p.mouseX > x-w/2 && p.mouseX < x+w/2 && 
+                p.mouseY > y-h/2 && p.mouseY < y+h/2 ){
+                    this.isHovered = true;
+                }
+            }
+            
+            // render
+            p.fill(this.isHovered ? MAIN_THEME.LIGHT : MAIN_THEME.DARK);
+            p.stroke(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
+            p.rect(x, y, w, h);
+            p.fill(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
+            p.noStroke();
+            p.textSize(s);
+            p.text(t, x, y);
+        };
+    }
+}
+
