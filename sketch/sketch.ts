@@ -1,5 +1,5 @@
 const sketch = (p: p5) => {
-
+    let previousClickFrame: number = 0;
 	
 
 	
@@ -39,7 +39,7 @@ const sketch = (p: p5) => {
         const noAction: ()=>void = () => modal.isOpen = false;
         modal.btns["solution,1,yes"] = new Button("Yes", 200, 400, 100, 60, 30, yesAction);
         modal.btns["solution,1,no"] = new Button("No", 400, 400, 100, 60, 30, noAction);
-        const yesX: number = p.floor(p.random(1,3)), yesY: number = p.floor(p.random(1,3));
+        const yesX: number = p.floor(p.random(1,4)), yesY: number = p.floor(p.random(1,4));
         for (let noY=0; noY < 4; noY++){
             for (let noX=0; noX < 4; noX++){
                 let action: ()=>void;
@@ -57,9 +57,21 @@ const sketch = (p: p5) => {
         }
 
         // new puzzle buttons
-
-        const l: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, l[p.floor(p.random(0,3))] , p);
+        const tts: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
+        const difs: number[] = [PUZZLE_CONSTANTS.DIFFICULTY_1, PUZZLE_CONSTANTS.DIFFICULTY_2, PUZZLE_CONSTANTS.DIFFICULTY_3];
+        ["Super easy", "Kind of easy", "Not so easy"].forEach((name, i) => {
+            modal.btns["newpuzzle," + i] = new Button(
+                name, 300, 150 + i*100, 
+                270, 70, 30, () => {
+                    MinigameMaster.setUpPuzzle(
+                        difs[i], tts[p.floor(p.random(0,3))], p
+                    );
+                }
+            );
+        });
+        
+        // default game
+        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, tts[p.floor(p.random(0,3))] , p);
 	};
 
 	p.draw = () => {
@@ -70,7 +82,9 @@ const sketch = (p: p5) => {
         // rendering minigame scene
         if (MinigameMaster.puzzleIsReady) MinigameMaster.render(p);
         else {
-            console.log("generating...");
+            p.fill(MAIN_THEME.LIGHT);
+            p.textSize(40);
+            p.text("Generating...", 300, 300);
             MinigameMaster.generatePuzzle(p);
         }
         
@@ -88,6 +102,10 @@ const sketch = (p: p5) => {
 	};
 
     p.mouseReleased = () =>{
+        // prevents rapid trigger
+        if (p.frameCount - previousClickFrame < 10) return;
+        else previousClickFrame = p.frameCount;
+
         // mini game scene
         if (MinigameMaster.puzzleIsReady) MinigameMaster.mouseReleased(p);
     }

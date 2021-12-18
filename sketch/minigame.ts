@@ -68,7 +68,7 @@ const PUZZLE_CONSTANTS: {[keys:string]: number} = {
     DIFFICULTY_3: 9,
     REMINDER_SCALE_MAX: 50,
     REMINDER_TRIGGER_POINT: -300,
-    MOVE_DURATION: 10
+    MOVE_DURATION: 12
 };
 
 interface DUMMY_PUZZLE_BLOCKER {
@@ -157,6 +157,7 @@ const MinigameMaster: MM_TYPE = {
 
     // setting up but not generating puzzle
     setUpPuzzle: function(blockersAmount: number, tt: Tile_Type, p: p5):void{
+        MinigameMaster.puzzleIsReady = false;
         // set up mapTiles, mapTilesKeys, tt
         MinigameMaster.mapTiles = {};
         PUZZLE_MAPS[tt].data.forEach(pos => {
@@ -460,6 +461,7 @@ const MinigameMaster: MM_TYPE = {
         }
 
         // renders dummy blockers (copy of blocker render)
+        p.noStroke();
         MinigameMaster.dummyBlockersList = MinigameMaster.dummyBlockersList.filter(db => {
             const bColor: number[] = PUZZLE_BLOCKER_COLORS[db.blocker.weight-1];
             p.fill(bColor[0], bColor[1], bColor[2]);
@@ -602,6 +604,7 @@ const MinigameMaster: MM_TYPE = {
         // dark overlay
         p.fill(0,0,0, 200);
         p.rect(300, 300, 700, 700);
+        p.strokeWeight(2);
 
         // content
         if (modal.content === "HELP"){
@@ -634,10 +637,25 @@ const MinigameMaster: MM_TYPE = {
                     }
                 }
             }  else if (modal.contentIndex === 2){ // solution
-                
+                p.textSize(24);
+                MinigameMaster.solution.forEach((deg, i) =>{
+                    const x: number = 150 + (i % 3) * 150;
+                    const y: number = 150 + p.floor(i/3) * 150;
+                    p.stroke(MAIN_THEME.LIGHT);
+                    p.strokeWeight(10);
+                    renderArrow(p, {r: deg, s: 1, x: x, y: y});
+
+                    p.noStroke();
+                    p.fill(MAIN_THEME.LIGHT);
+                    p.ellipse(x, y, 40, 40);
+                    p.fill(MAIN_THEME.DARK);
+                    p.text(i+1, x,y);
+                });
             }
         } else if (modal.content === "NEW PUZZLE"){
-            ////
+            for (let i=0; i < 3; i++){
+                modal.btns["newpuzzle,"+i].draw(p);
+            }
         }
     },
 
@@ -665,9 +683,7 @@ const MinigameMaster: MM_TYPE = {
             } else if (modal.content === "SOLUTION"){
                 // close modal on last content page
                 if (modal.contentIndex === 2) modal.isOpen = false;
-            } else if (modal.content === "NEW PUZZLE"){
-                //////
-            }
+            } 
 
             // check modal buttons
             Object.keys(modal.btns).some(function(btnKey){
@@ -697,6 +713,18 @@ const MinigameMaster: MM_TYPE = {
         MinigameMaster.modal.isOpen = false;
     }
 };
+
+function renderArrow(p: p5, props: {r: number, s: number, x: number, y: number}): void{
+    const {r,s,x,y} = props;
+    p.push();
+    p.translate(x, y);
+    p.rotate(-r);
+    p.scale(s);
+    p.line(-50, 0, 50, 0);
+    p.line(20, -30, 50, 0);
+    p.line(20, 30, 50, 0);
+    p.pop();
+}
 
 function puzzleStartNextMove(p:p5): void{
     const m: MM_TYPE["movement"] = MinigameMaster.movement;
@@ -761,6 +789,7 @@ function puzzleStartNextMove(p:p5): void{
     if (m.forceStopCountdown <= 0){
         m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
         m.isMoving = false;
+        m.hoveredVecs = null;
         m.forceStopCountdown = 100;
     } else {
         m.forceStopCountdown--;

@@ -64,7 +64,7 @@ const PUZZLE_CONSTANTS = {
     DIFFICULTY_3: 9,
     REMINDER_SCALE_MAX: 50,
     REMINDER_TRIGGER_POINT: -300,
-    MOVE_DURATION: 10
+    MOVE_DURATION: 12
 };
 const MinigameMaster = {
     tt: "SQUARE",
@@ -93,6 +93,7 @@ const MinigameMaster = {
     mainBtns: [],
     // setting up but not generating puzzle
     setUpPuzzle: function (blockersAmount, tt, p) {
+        MinigameMaster.puzzleIsReady = false;
         // set up mapTiles, mapTilesKeys, tt
         MinigameMaster.mapTiles = {};
         PUZZLE_MAPS[tt].data.forEach(pos => {
@@ -364,6 +365,7 @@ const MinigameMaster = {
             MinigameMaster.teleporters.forEach(t => MinigameMaster.renderEnlargingFrame(p, [230, 230, 0], t, MinigameMaster.teleportAnimationProgress));
         }
         // renders dummy blockers (copy of blocker render)
+        p.noStroke();
         MinigameMaster.dummyBlockersList = MinigameMaster.dummyBlockersList.filter(db => {
             const bColor = PUZZLE_BLOCKER_COLORS[db.blocker.weight - 1];
             p.fill(bColor[0], bColor[1], bColor[2]);
@@ -493,6 +495,7 @@ const MinigameMaster = {
         // dark overlay
         p.fill(0, 0, 0, 200);
         p.rect(300, 300, 700, 700);
+        p.strokeWeight(2);
         // content
         if (modal.content === "HELP") {
             if (modal.contentIndex === 1) {
@@ -530,10 +533,25 @@ const MinigameMaster = {
                 }
             }
             else if (modal.contentIndex === 2) { // solution
+                p.textSize(24);
+                MinigameMaster.solution.forEach((deg, i) => {
+                    const x = 150 + (i % 3) * 150;
+                    const y = 150 + p.floor(i / 3) * 150;
+                    p.stroke(MAIN_THEME.LIGHT);
+                    p.strokeWeight(10);
+                    renderArrow(p, { r: deg, s: 1, x: x, y: y });
+                    p.noStroke();
+                    p.fill(MAIN_THEME.LIGHT);
+                    p.ellipse(x, y, 40, 40);
+                    p.fill(MAIN_THEME.DARK);
+                    p.text(i + 1, x, y);
+                });
             }
         }
         else if (modal.content === "NEW PUZZLE") {
-            ////
+            for (let i = 0; i < 3; i++) {
+                modal.btns["newpuzzle," + i].draw(p);
+            }
         }
     },
     mouseReleased(p) {
@@ -563,9 +581,6 @@ const MinigameMaster = {
                 if (modal.contentIndex === 2)
                     modal.isOpen = false;
             }
-            else if (modal.content === "NEW PUZZLE") {
-                //////
-            }
             // check modal buttons
             Object.keys(modal.btns).some(function (btnKey) {
                 const btn = modal.btns[btnKey];
@@ -591,6 +606,17 @@ const MinigameMaster = {
         MinigameMaster.modal.isOpen = false;
     }
 };
+function renderArrow(p, props) {
+    const { r, s, x, y } = props;
+    p.push();
+    p.translate(x, y);
+    p.rotate(-r);
+    p.scale(s);
+    p.line(-50, 0, 50, 0);
+    p.line(20, -30, 50, 0);
+    p.line(20, 30, 50, 0);
+    p.pop();
+}
 function puzzleStartNextMove(p) {
     const m = MinigameMaster.movement;
     // if current pos is teleporter then teleport
@@ -652,6 +678,7 @@ function puzzleStartNextMove(p) {
     if (m.forceStopCountdown <= 0) {
         m.reminderScale = PUZZLE_CONSTANTS.REMINDER_SCALE_MAX;
         m.isMoving = false;
+        m.hoveredVecs = null;
         m.forceStopCountdown = 100;
     }
     else {
@@ -782,6 +809,7 @@ function createEdgeNeighborTile(pos) {
     return getNewTile(pos, MinigameMaster.tt);
 }
 const sketch = (p) => {
+    let previousClickFrame = 0;
     p.setup = () => {
         p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
@@ -815,7 +843,7 @@ const sketch = (p) => {
         const noAction = () => modal.isOpen = false;
         modal.btns["solution,1,yes"] = new Button("Yes", 200, 400, 100, 60, 30, yesAction);
         modal.btns["solution,1,no"] = new Button("No", 400, 400, 100, 60, 30, noAction);
-        const yesX = p.floor(p.random(1, 3)), yesY = p.floor(p.random(1, 3));
+        const yesX = p.floor(p.random(1, 4)), yesY = p.floor(p.random(1, 4));
         for (let noY = 0; noY < 4; noY++) {
             for (let noX = 0; noX < 4; noX++) {
                 let action;
@@ -832,8 +860,15 @@ const sketch = (p) => {
             }
         }
         // new puzzle buttons
-        const l = ["TRIANGLE", "SQUARE", "HEXAGON"];
-        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, l[p.floor(p.random(0, 3))], p);
+        const tts = ["TRIANGLE", "SQUARE", "HEXAGON"];
+        const difs = [PUZZLE_CONSTANTS.DIFFICULTY_1, PUZZLE_CONSTANTS.DIFFICULTY_2, PUZZLE_CONSTANTS.DIFFICULTY_3];
+        ["Super easy", "Kind of easy", "Not so easy"].forEach((name, i) => {
+            modal.btns["newpuzzle," + i] = new Button(name, 300, 150 + i * 100, 270, 70, 30, () => {
+                MinigameMaster.setUpPuzzle(difs[i], tts[p.floor(p.random(0, 3))], p);
+            });
+        });
+        // default game
+        MinigameMaster.setUpPuzzle(PUZZLE_CONSTANTS.DIFFICULTY_1, tts[p.floor(p.random(0, 3))], p);
     };
     p.draw = () => {
         p.push();
@@ -842,7 +877,9 @@ const sketch = (p) => {
         if (MinigameMaster.puzzleIsReady)
             MinigameMaster.render(p);
         else {
-            console.log("generating...");
+            p.fill(MAIN_THEME.LIGHT);
+            p.textSize(40);
+            p.text("Generating...", 300, 300);
             MinigameMaster.generatePuzzle(p);
         }
         // var hex = new Hexagon_Tile([0, 0]);
@@ -854,6 +891,11 @@ const sketch = (p) => {
         p.pop();
     };
     p.mouseReleased = () => {
+        // prevents rapid trigger
+        if (p.frameCount - previousClickFrame < 10)
+            return;
+        else
+            previousClickFrame = p.frameCount;
         // mini game scene
         if (MinigameMaster.puzzleIsReady)
             MinigameMaster.mouseReleased(p);
