@@ -1,3 +1,6 @@
+const PLAYER_COLOR = [
+    [230, 230, 230], [10, 10, 10]
+];
 const PUZZLE_MAPS = {
     TRIANGLE: { yPos: 320, rotateMax: 60,
         dirVectors: [
@@ -312,22 +315,7 @@ const MinigameMaster = {
         // renders blockers
         p.textSize(36);
         p.noStroke();
-        MinigameMaster.blockersList.forEach((b) => {
-            if (b.isDestroyed)
-                return;
-            const bColor = PUZZLE_BLOCKER_COLORS[b.weight - 1];
-            p.fill(bColor[0], bColor[1], bColor[2]);
-            renderTransitionalTile({
-                p: p, tile: b.tile,
-                renderPos: null, scaleValue: 0.8, rotateValue: 0,
-                extraRender: () => {
-                    if (b.tile.tt === "TRIANGLE" && !b.tile.isUpward)
-                        p.rotate(180);
-                    p.fill(MAIN_THEME.LIGHT);
-                    p.text(b.weight, 0, 0);
-                }
-            });
-        });
+        MinigameMaster.blockersList.forEach((b) => renderPuzzleBlocker(p, b));
         // renders ghost trails
         MinigameMaster.moveAnimation.ghostTrails = MinigameMaster.moveAnimation.ghostTrails
             .filter(gt => {
@@ -350,12 +338,12 @@ const MinigameMaster = {
             playerRotateValue = p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, 0, getPM().rotateMax);
             if (p.frameCount % 5 === 1) {
                 MinigameMaster.moveAnimation.ghostTrails.push({
-                    fillColor: [230, 230, 230], opacityValue: 300, tilePos: m.currentPosTile,
+                    fillColor: PLAYER_COLOR[0], opacityValue: 300, tilePos: m.currentPosTile,
                     renderPos: playerRenderPos, rotation: playerRotateValue
                 });
             }
         }
-        renderPlayer([230, 230, 230], [10, 10, 10], {
+        renderPlayer(PLAYER_COLOR[0], PLAYER_COLOR[1], {
             p: p, tile: m.currentPosTile,
             renderPos: playerRenderPos, scaleValue: 0.8, rotateValue: playerRotateValue,
             extraRender: null
@@ -512,21 +500,107 @@ const MinigameMaster = {
         p.strokeWeight(2);
         // content
         if (modal.content === "HELP") {
+            p.textSize(30);
+            p.fill(MAIN_THEME.LIGHT);
             if (modal.contentIndex === 1) {
-                p.fill("red");
-                p.circle(300, 300, 100);
+                p.text("The goal is to smash all blockers, you know, the ones with a silly number on them. You are the cool looking one.", 300, 390, 500);
+                p.text("You", 250, 310);
+                p.text("Not you", 420, 320);
+                p.stroke(MAIN_THEME.LIGHT);
+                p.strokeWeight(6);
+                renderArrow(p, {
+                    r: 120, s: 1, x: 180, y: 280
+                });
+                renderArrow(p, {
+                    r: 100, s: 1, x: 500, y: 280
+                });
+                p.noStroke();
+                renderPlayer(PLAYER_COLOR[0], PLAYER_COLOR[1], {
+                    p: p, tile: CENTER_TILES[MinigameMaster.tt],
+                    renderPos: [130, 150], scaleValue: 1.5, rotateValue: -20,
+                    extraRender: null
+                });
+                p.push();
+                p.translate(400, 100);
+                p.rotate(10);
+                p.scale(1.5);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES[MinigameMaster.tt], weight: 1
+                });
+                p.translate(50, 10);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES[MinigameMaster.tt], weight: 2
+                });
+                p.translate(-40, 40);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES[MinigameMaster.tt], weight: 3
+                });
+                p.pop();
             }
             else if (modal.contentIndex === 2) {
-                p.fill("blue");
-                p.circle(300, 300, 100);
+                p.text("Click to move in any direction your heart desires, except when the path is blocked, or you when would go out of bound.", 300, 350, 500);
+                renderPlayer(PLAYER_COLOR[0], PLAYER_COLOR[1], {
+                    p: p, tile: CENTER_TILES[MinigameMaster.tt],
+                    renderPos: [300, 200], scaleValue: 1.5, rotateValue: 0,
+                    extraRender: null
+                });
+                p.stroke(MAIN_THEME.LIGHT);
+                p.strokeWeight(6);
+                renderArrow(p, {
+                    r: 140, s: 1, x: 160, y: 140
+                });
+                renderArrow(p, {
+                    r: 330, s: 1, x: 450, y: 250
+                });
             }
             else if (modal.contentIndex === 3) {
-                p.fill("green");
-                p.circle(300, 300, 100);
+                p.text("The silly number each blocker has is its weight. The heaviest one (3) stops you as soon as you hit it. The less heavy ones allow you to move a bit more after the collision.", 300, 320, 500);
+                p.text("The silly number", 420, 210);
+                p.push();
+                p.translate(200, 100);
+                p.rotate(-10);
+                p.scale(1.2);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES["SQUARE"], weight: 1
+                });
+                p.scale(1.2);
+                p.rotate(20);
+                p.translate(50, 10);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES["TRIANGLE"], weight: 2
+                });
+                p.scale(1.4);
+                p.rotate(-10);
+                p.translate(-50, 30);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES["HEXAGON"], weight: 3
+                });
+                p.pop();
+                p.stroke(MAIN_THEME.LIGHT);
+                p.strokeWeight(6);
+                renderArrow(p, {
+                    r: 155, s: 1, x: 250, y: 220
+                });
             }
             else if (modal.contentIndex === 4) {
-                p.fill("yellow");
-                p.circle(300, 300, 100);
+                p.text("Oh and the teleporter could be useful too, who knows. Have fun sending these blockers flying!", 300, 350, 500);
+                p.push();
+                p.translate(170, 130);
+                p.rotate(-50);
+                p.scale(1.7);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES[MinigameMaster.tt], weight: 1
+                });
+                p.translate(-30, 50);
+                p.rotate(-20);
+                renderPuzzleBlocker(p, {
+                    tile: CENTER_TILES[MinigameMaster.tt], weight: 3
+                });
+                p.rotate(100);
+                p.textSize(12);
+                p.fill(MAIN_THEME.LIGHT);
+                p.text("\"What have we ever done\nto deserve this??\"", 80, -80);
+                p.pop();
             }
         }
         else if (modal.content === "SOLUTION") {
@@ -567,6 +641,9 @@ const MinigameMaster = {
                 modal.btns["newpuzzle," + i].draw(p);
             }
         }
+        else if (modal.content === "TITLE") {
+            renderTitle(p);
+        }
     },
     mouseReleased(p) {
         // start moving if not moving and valid move
@@ -600,6 +677,9 @@ const MinigameMaster = {
                     modal.isOpen = false;
                 modal.contentIndex++;
             }
+            else if (modal.content === "TITLE") {
+                modal.isOpen = false;
+            }
             // check modal buttons
             Object.keys(modal.btns).some(function (btnKey) {
                 const btn = modal.btns[btnKey];
@@ -625,6 +705,38 @@ const MinigameMaster = {
         MinigameMaster.modal.isOpen = false;
     }
 };
+function displayTitle(p) {
+    MinigameMaster.modal.isOpen = true;
+    MinigameMaster.modal.content = "TITLE";
+}
+function renderTitle(p) {
+    p.noStroke();
+    p.fill(MAIN_THEME.LIGHT);
+    p.textSize(60);
+    p.text("Little", 230, 200);
+    p.textSize(100);
+    p.text("Minigame", 330, 300);
+    p.stroke(MAIN_THEME.LIGHT);
+    p.strokeWeight(6);
+    p.line(0, 50, 600, 200);
+    p.line(0, 350, 600, 500);
+}
+function renderPuzzleBlocker(p, b) {
+    if (b.isDestroyed)
+        return;
+    const bColor = PUZZLE_BLOCKER_COLORS[b.weight - 1];
+    p.fill(bColor[0], bColor[1], bColor[2]);
+    renderTransitionalTile({
+        p: p, tile: b.tile,
+        renderPos: null, scaleValue: 0.8, rotateValue: 0,
+        extraRender: () => {
+            if (b.tile.tt === "TRIANGLE" && !b.tile.isUpward)
+                p.rotate(180);
+            p.fill(MAIN_THEME.LIGHT);
+            p.text(b.weight, 0, 0);
+        }
+    });
+}
 function renderArrow(p, props) {
     const { r, s, x, y } = props;
     p.push();
