@@ -253,10 +253,6 @@ const MinigameMaster = {
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length - 1].tile;
             MinigameMaster.puzzleIsReady = true;
             MinigameMaster.reset();
-            console.log("solution:");
-            MinigameMaster.solution.forEach((s) => {
-                console.log(s);
-            });
         }
     },
     render: function (p) {
@@ -332,6 +328,18 @@ const MinigameMaster = {
                 }
             });
         });
+        // renders ghost trails
+        MinigameMaster.moveAnimation.ghostTrails = MinigameMaster.moveAnimation.ghostTrails
+            .filter(gt => {
+            gt.opacityValue -= 8;
+            p.fill(gt.fillColor[0], gt.fillColor[1], gt.fillColor[2], p.min(gt.opacityValue, 120));
+            renderTransitionalTile({
+                p: p, tile: gt.tilePos,
+                renderPos: gt.renderPos, scaleValue: 0.8, rotateValue: gt.rotation,
+                extraRender: null
+            });
+            return gt.opacityValue >= 0;
+        });
         // renders player
         let playerRenderPos, playerRotateValue = 0;
         if (m.isMoving && m.destinationTile && MinigameMaster.moveAnimation.progress >= 0) {
@@ -340,6 +348,12 @@ const MinigameMaster = {
                 p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, m.currentPosTile.renderPos[1], m.destinationTile.renderPos[1])
             ];
             playerRotateValue = p.map(MinigameMaster.moveAnimation.progress, PUZZLE_CONSTANTS.MOVE_DURATION, 0, 0, getPM().rotateMax);
+            if (p.frameCount % 5 === 1) {
+                MinigameMaster.moveAnimation.ghostTrails.push({
+                    fillColor: [230, 230, 230], opacityValue: 300, tilePos: m.currentPosTile,
+                    renderPos: playerRenderPos, rotation: playerRotateValue
+                });
+            }
         }
         renderPlayer([230, 230, 230], [10, 10, 10], {
             p: p, tile: m.currentPosTile,
@@ -580,6 +594,11 @@ const MinigameMaster = {
                 // close modal on last content page
                 if (modal.contentIndex === 2)
                     modal.isOpen = false;
+            }
+            else if (modal.content === "NEW PUZZLE") {
+                if (modal.contentIndex > 0)
+                    modal.isOpen = false;
+                modal.contentIndex++;
             }
             // check modal buttons
             Object.keys(modal.btns).some(function (btnKey) {
@@ -836,6 +855,7 @@ const sketch = (p) => {
             new Button("New Puzzle", 520, 40, 130, 40, 18, () => {
                 modal.isOpen = true;
                 modal.content = "NEW PUZZLE";
+                modal.contentIndex = 0;
             }, mainBtnsDoCheckHover)
         ];
         // set up puzzle modal buttons
@@ -862,7 +882,7 @@ const sketch = (p) => {
         // new puzzle buttons
         const tts = ["TRIANGLE", "SQUARE", "HEXAGON"];
         const difs = [PUZZLE_CONSTANTS.DIFFICULTY_1, PUZZLE_CONSTANTS.DIFFICULTY_2, PUZZLE_CONSTANTS.DIFFICULTY_3];
-        ["Super easy", "Kind of easy", "Not so easy"].forEach((name, i) => {
+        ["Super easy", "Pretty easy", "Not so easy"].forEach((name, i) => {
             modal.btns["newpuzzle," + i] = new Button(name, 300, 150 + i * 100, 270, 70, 30, () => {
                 MinigameMaster.setUpPuzzle(difs[i], tts[p.floor(p.random(0, 3))], p);
             });

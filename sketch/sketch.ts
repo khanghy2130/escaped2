@@ -31,6 +31,7 @@ const sketch = (p: p5) => {
             new Button("New Puzzle", 520, 40, 130, 40, 18, ()=>{
                 modal.isOpen = true;
                 modal.content = "NEW PUZZLE";
+                modal.contentIndex = 0;
             }, mainBtnsDoCheckHover)
         ];
 
@@ -59,7 +60,7 @@ const sketch = (p: p5) => {
         // new puzzle buttons
         const tts: Tile_Type[] = ["TRIANGLE" , "SQUARE" , "HEXAGON"];
         const difs: number[] = [PUZZLE_CONSTANTS.DIFFICULTY_1, PUZZLE_CONSTANTS.DIFFICULTY_2, PUZZLE_CONSTANTS.DIFFICULTY_3];
-        ["Super easy", "Kind of easy", "Not so easy"].forEach((name, i) => {
+        ["Super easy", "Pretty easy", "Not so easy"].forEach((name, i) => {
             modal.btns["newpuzzle," + i] = new Button(
                 name, 300, 150 + i*100, 
                 270, 70, 30, () => {

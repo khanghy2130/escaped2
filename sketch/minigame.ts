@@ -329,11 +329,6 @@ const MinigameMaster: MM_TYPE = {
             MinigameMaster.startingTile = MinigameMaster.generationSteps[MinigameMaster.generationSteps.length-1].tile;
             MinigameMaster.puzzleIsReady = true;
             MinigameMaster.reset();
-
-            console.log("solution:");
-            MinigameMaster.solution.forEach((s) => {
-                console.log(s);
-            });
         }
     },
 
@@ -413,6 +408,19 @@ const MinigameMaster: MM_TYPE = {
             });
         });
 
+        // renders ghost trails
+        MinigameMaster.moveAnimation.ghostTrails = MinigameMaster.moveAnimation.ghostTrails
+        .filter(gt => {
+            gt.opacityValue -= 8;
+            p.fill(gt.fillColor[0], gt.fillColor[1], gt.fillColor[2], p.min(gt.opacityValue, 120));
+            renderTransitionalTile({
+                p: p, tile: gt.tilePos,
+                renderPos: gt.renderPos, scaleValue: 0.8, rotateValue: gt.rotation,
+                extraRender: null
+            });
+            return gt.opacityValue >= 0;
+        });
+
         // renders player
         let playerRenderPos: Position2D, playerRotateValue: number = 0;
         if (m.isMoving && m.destinationTile && MinigameMaster.moveAnimation.progress >= 0){
@@ -429,6 +437,12 @@ const MinigameMaster: MM_TYPE = {
                 PUZZLE_CONSTANTS.MOVE_DURATION, 0,
                 0, getPM().rotateMax
             );
+            if (p.frameCount % 5 === 1){
+                MinigameMaster.moveAnimation.ghostTrails.push({
+                    fillColor: [230,230,230], opacityValue: 300, tilePos: m.currentPosTile,
+                    renderPos: playerRenderPos, rotation: playerRotateValue
+                });
+            }
         }
         renderPlayer([230,230,230], [10,10,10], {
             p: p, tile: m.currentPosTile,
@@ -683,7 +697,10 @@ const MinigameMaster: MM_TYPE = {
             } else if (modal.content === "SOLUTION"){
                 // close modal on last content page
                 if (modal.contentIndex === 2) modal.isOpen = false;
-            } 
+            } else if (modal.content === "NEW PUZZLE"){
+                if (modal.contentIndex > 0) modal.isOpen = false;
+                modal.contentIndex++;
+            }
 
             // check modal buttons
             Object.keys(modal.btns).some(function(btnKey){

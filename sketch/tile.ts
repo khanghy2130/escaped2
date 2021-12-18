@@ -142,7 +142,7 @@ CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
     vertex[1] -= CONSTANTS.TRIANGLE_HEIGHT - (2 * CONSTANTS.TRIANGLE_CENTER_Y);
 });
 
-interface GhostTrail {fillColor: number[], opacityValue: number}
+interface GhostTrail {fillColor: number[], opacityValue: number, tilePos:Tile, renderPos: Position2D, rotation: number}
 
 function renderTile(p: p5, tile: Tile): void {
 	p.beginShape();
