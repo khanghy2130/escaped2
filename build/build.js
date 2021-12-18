@@ -995,7 +995,7 @@ const sketch = (p) => {
         const tts = ["TRIANGLE", "SQUARE", "HEXAGON"];
         const difs = [PUZZLE_CONSTANTS.DIFFICULTY_1, PUZZLE_CONSTANTS.DIFFICULTY_2, PUZZLE_CONSTANTS.DIFFICULTY_3];
         ["Super easy", "Pretty easy", "Not so easy"].forEach((name, i) => {
-            modal.btns["newpuzzle," + i] = new Button(name, 300, 150 + i * 100, 270, 70, 30, () => {
+            modal.btns["newpuzzle," + i] = new Button(name, 300, 180 + i * 100, 270, 70, 30, () => {
                 MinigameMaster.setUpPuzzle(difs[i], tts[p.floor(p.random(0, 3))], p);
             });
         });
