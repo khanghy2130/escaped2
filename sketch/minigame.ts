@@ -1,3 +1,5 @@
+/*
+
 const PLAYER_COLOR : [number[], number[]] = [
     [230,230,230], [10,10,10]
 ];
@@ -1088,3 +1090,31 @@ function createEdgeNeighborTile(pos: Position2D): Tile {
     if (!MinigameMaster.puzzleIsReady) return null; // is generating, no need to create
     return getNewTile(pos, MinigameMaster.tt);
 }
+
+*/
+
+
+
+/*
+// returns the degree in degreesMap that is closest to tracker direction
+function getDegree(p:p5, centerPos: Position2D, trackerPos: Position2D, degreesMap: number[]): number{
+    let a: number = p.atan2(
+        trackerPos[1] - centerPos[1], 
+        trackerPos[0] - centerPos[0]
+    ) * -1;
+    if (a < 0) a = 360 + a;
+
+    // see which is the closest to input deg
+    const proximities: [number, number][] = degreesMap
+    .map(function(deg, index): [number,number] {
+        const abs1: number = p.abs(a - deg);
+        let abs2: number = 999;
+        if (a > 270) {
+            abs2 = p.abs(-(360 - a) - deg);
+        }
+        return [p.min(abs1, abs2), index]
+    });
+    proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
+    return degreesMap[proximities[0][1]];
+}
+*/

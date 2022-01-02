@@ -25,6 +25,7 @@ interface Tile {
 	neighbors: {[keys: string]: NeighborObject};
 	verticesList: Position2D[];
 
+    item: string;
     isUpward?: boolean; // triangle only
 }
 
@@ -35,6 +36,7 @@ class Square_Tile implements Tile {
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
+    item: "";
 
 	constructor (pos: Position2D){
         this.tt = "SQUARE";
@@ -63,6 +65,7 @@ class Hexagon_Tile implements Tile {
 	renderPos: Position2D = [0,0];
 	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
+    item: "";
 
 	constructor (pos: Position2D){
         this.tt = "HEXAGON";
@@ -94,6 +97,7 @@ class Triangle_Tile implements Tile {
 	neighbors: {[keys: string]: NeighborObject} = {};
 	verticesList: Position2D[] = [];
     isUpward: boolean = false;
+    item: "";
 
 	constructor (pos: Position2D){
         this.tt = "TRIANGLE";
@@ -172,12 +176,15 @@ function renderTransitionalTile(props: RenderTransitionalTileProps): void{
 
     if (tile.tt === "TRIANGLE" && !tile.isUpward) p.rotate(180);
     renderTile(p, CENTER_TILES[tile.tt]);
-    if (extraRender) extraRender();
+    if (extraRender) {extraRender();}
     p.pop();
 }
 
 
-function renderPlayer(fillColor: number[], strokeColor: number[], props: RenderTransitionalTileProps): void{
+function renderPlayer(
+    fillColor: number[], strokeColor: number[], 
+    props: RenderTransitionalTileProps
+): void{
     const p: p5 = props.p, tile: Tile = props.tile;
 
     p.fill(fillColor[0],fillColor[1],fillColor[2]);
@@ -235,35 +242,11 @@ function keyToPos(key:string): Position2D{
 }
 
 
-
-// returns the degree in degreesMap that is closest to tracker direction
-function getDegree(p:p5, centerPos: Position2D, trackerPos: Position2D, degreesMap: number[]): number{
-    let a: number = p.atan2(
-        trackerPos[1] - centerPos[1], 
-        trackerPos[0] - centerPos[0]
-    ) * -1;
-    if (a < 0) a = 360 + a;
-
-    // see which is the closest to input deg
-    const proximities: [number, number][] = degreesMap
-    .map(function(deg, index): [number,number] {
-        const abs1: number = p.abs(a - deg);
-        let abs2: number = 999;
-        if (a > 270) {
-            abs2 = p.abs(-(360 - a) - deg);
-        }
-        return [p.min(abs1, abs2), index]
-    });
-    proximities.sort((prox1, prox2) => prox1[0] - prox2[0]);
-    return degreesMap[proximities[0][1]];
-}
-
-
-
 class Button {
     isHovered: boolean;
     action: Function;
     draw: (p: p5) => void;
+    checkClicked: () => boolean;
 
     constructor(t: string, x: number, y: number, 
     w: number, h: number, s: number, action: Function, doHoverCheck?: ()=>boolean){
@@ -279,14 +262,43 @@ class Button {
             }
             
             // render
-            p.fill(this.isHovered ? MAIN_THEME.LIGHT : MAIN_THEME.DARK);
-            p.stroke(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
+            if (this.isHovered) p.fill(MAIN_THEME.LIGHT);
+            else p.noFill();
+            p.stroke(MAIN_THEME.LIGHT);
             p.rect(x, y, w, h);
             p.fill(this.isHovered ? MAIN_THEME.DARK : MAIN_THEME.LIGHT);
             p.noStroke();
             p.textSize(s);
             p.text(t, x, y);
         };
+
+        this.checkClicked = function(): boolean{
+            if (this.isHovered) {
+                this.action();
+                return true;
+            }
+            return false;
+        };
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
