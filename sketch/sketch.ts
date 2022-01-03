@@ -8,28 +8,33 @@ const sketch = (p: p5) => {
 		p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
-        p.textFont("fantasy"); //////////// createFont();
+        //p.textFont("fantasy"); //////////// createFont();
         p.angleMode(p.DEGREES); ///////// angleMode = "degrees";
 
+
+        //////
+        const tts: Tile_Type[] = ["HEXAGON", "SQUARE", "TRIANGLE"];
+        MenuScene.setUpGrid(tts[0]); //p.floor(p.random(0,3))
     };
-    let vt: Button;
+
+
 	p.draw = () => {
         p.push();
 		p.background(MAIN_THEME.DARK);
 
-        vt = new Button("Button",300, 300, 300, 100, 50, ()=>console.log("uh"));
-        vt.draw(p);
-
+        p.textSize(12);
+        MenuScene.render(p);
         
         p.pop();
 	};
 
     p.mouseReleased = () =>{
         // prevents rapid release trigger
-        if (p.frameCount - previousClickFrame < 10) return;
+        if (p.frameCount - previousClickFrame < 6) return;
         else previousClickFrame = p.frameCount;
 
-        vt.checkClicked();
+        // mouseReleased for each scene
+        MenuScene.mouseReleased(p);
     }
 };
 

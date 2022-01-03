@@ -1,10 +1,6 @@
 ### Installing
 
 ```
-git clone https://github.com/khanghy2130/p5-typescript-starter.git
-```
-
-```
 npm install
 ```
 

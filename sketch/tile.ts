@@ -4,6 +4,12 @@ const MAIN_THEME: {LIGHT: number, DARK: number} = {
 const SCALINGS = {
 	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
 };
+const RADIUS_SCALINGS = {
+	SQUARE: SCALINGS.SQUARE * 0.5, 
+    TRIANGLE: SCALINGS.TRIANGLE * 0.29, 
+    HEXAGON: SCALINGS.HEXAGON * 0.85
+};
+
 const CONSTANTS = {
     HEXAGON_HALF_SQRT_3: SCALINGS.HEXAGON * Math.sqrt(3)/2,
     HEXAGON_HALF_SCALING: SCALINGS.HEXAGON / 2,
@@ -148,6 +154,12 @@ CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
 
 interface GhostTrail {fillColor: number[], opacityValue: number, tilePos:Tile, renderPos: Position2D, rotation: number}
 
+function checkTileHovered(p:p5, tile: Tile): boolean {
+    return p.dist(
+        tile.renderPos[0], tile.renderPos[1], p.mouseX, p.mouseY
+    ) < RADIUS_SCALINGS[tile.tt];
+}
+
 function renderTile(p: p5, tile: Tile): void {
 	p.beginShape();
     tile.verticesList.forEach(vPos => p.vertex(vPos[0],vPos[1]));
@@ -160,6 +172,7 @@ function renderTile(p: p5, tile: Tile): void {
     // p.pop();
 }
 
+// for rendering out-of-grid tile shapes
 interface RenderTransitionalTileProps {
     p: p5, tile: Tile, renderPos: Position2D, 
     scaleValue: number, rotateValue: number,
@@ -227,12 +240,12 @@ function setUpNeighbors(tile: Tile,vectorsList: Position2D[]):void{
     });
 }
 function getNewTile(pos: Position2D, tt: Tile_Type): Tile{
-    if (tt === "HEXAGON") return new Hexagon_Tile(pos);
-    if (tt === "SQUARE") return new Square_Tile(pos);
+    if (tt === "HEXAGON") {return new Hexagon_Tile(pos);}
+    if (tt === "SQUARE") {return new Square_Tile(pos);}
     return new Triangle_Tile(pos);
 }
 function posToKey(pos:Position2D):string {
-	return `${pos[0]},${pos[1]}`
+	return `${pos[0]},${pos[1]}`;
 }
 function keyToPos(key:string): Position2D{
 	const xy = key.split(",").map(n=>Number(n));
@@ -281,7 +294,11 @@ class Button {
         };
     }
 }
-
+/*
+vt = new Button("Button",300, 300, 300, 100, 50, ()=>console.log("uh"));
+vt.draw(p);
+vt.checkClicked(); // returns boolean, call this when trigger input
+*/
 
 
 
