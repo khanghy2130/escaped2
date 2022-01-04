@@ -154,13 +154,13 @@ CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
 
 interface GhostTrail {fillColor: number[], opacityValue: number, tilePos:Tile, renderPos: Position2D, rotation: number}
 
-function checkTileHovered(p:p5, tile: Tile): boolean {
+function checkTileHovered(tile: Tile): boolean {
     return p.dist(
         tile.renderPos[0], tile.renderPos[1], p.mouseX, p.mouseY
     ) < RADIUS_SCALINGS[tile.tt];
 }
 
-function renderTile(p: p5, tile: Tile): void {
+function renderTile(tile: Tile): void {
 	p.beginShape();
     tile.verticesList.forEach(vPos => p.vertex(vPos[0],vPos[1]));
 	p.endShape(p.CLOSE);
@@ -174,12 +174,12 @@ function renderTile(p: p5, tile: Tile): void {
 
 // for rendering out-of-grid tile shapes
 interface RenderTransitionalTileProps {
-    p: p5, tile: Tile, renderPos: Position2D, 
+    tile: Tile, renderPos: Position2D, 
     scaleValue: number, rotateValue: number,
     extraRender: ()=>void
 }
 function renderTransitionalTile(props: RenderTransitionalTileProps): void{
-    let {p, tile, renderPos, scaleValue, rotateValue, extraRender} = props;
+    let {tile, renderPos, scaleValue, rotateValue, extraRender} = props;
     renderPos = renderPos || tile.renderPos;
 
     p.push();
@@ -188,7 +188,7 @@ function renderTransitionalTile(props: RenderTransitionalTileProps): void{
     p.rotate(rotateValue);
 
     if (tile.tt === "TRIANGLE" && !tile.isUpward) p.rotate(180);
-    renderTile(p, CENTER_TILES[tile.tt]);
+    renderTile(CENTER_TILES[tile.tt]);
     if (extraRender) {extraRender();}
     p.pop();
 }
@@ -198,7 +198,7 @@ function renderPlayer(
     fillColor: number[], strokeColor: number[], 
     props: RenderTransitionalTileProps
 ): void{
-    const p: p5 = props.p, tile: Tile = props.tile;
+    const tile: Tile = props.tile;
 
     p.fill(fillColor[0],fillColor[1],fillColor[2]);
     p.noStroke();
@@ -258,7 +258,7 @@ function keyToPos(key:string): Position2D{
 class Button {
     isHovered: boolean;
     action: Function;
-    draw: (p: p5) => void;
+    draw: () => void;
     checkClicked: () => boolean;
 
     constructor(t: string, x: number, y: number, 
@@ -266,7 +266,7 @@ class Button {
         this.isHovered = false;
         this.action = action;
         
-        this.draw = function(p: p5){
+        this.draw = function(){
             if (!doHoverCheck || doHoverCheck()) {
                 if (p.mouseX > x-w/2 && p.mouseX < x+w/2 && 
                 p.mouseY > y-h/2 && p.mouseY < y+h/2 ){

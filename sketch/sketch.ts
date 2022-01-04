@@ -1,13 +1,12 @@
-const sketch = (p: p5) => {
+const sketch = (_p: p5) => {
+    p = _p;
     let previousClickFrame: number = 0;
-	
-
-	
 
     p.setup = () => {
 		p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
+        p.frameRate(60);
         //p.textFont("fantasy"); //////////// createFont();
         p.angleMode(p.DEGREES); ///////// angleMode = "degrees";
 
@@ -22,8 +21,7 @@ const sketch = (p: p5) => {
         p.push();
 		p.background(MAIN_THEME.DARK);
 
-        p.textSize(12);
-        MenuScene.render(p);
+        SCENES[currentScene].render(); // renders scene
         
         p.pop();
 	};
@@ -33,8 +31,7 @@ const sketch = (p: p5) => {
         if (p.frameCount - previousClickFrame < 6) return;
         else previousClickFrame = p.frameCount;
 
-        // mouseReleased for each scene
-        MenuScene.mouseReleased(p);
+        SCENES[currentScene].mouseReleased();
     }
 };
 

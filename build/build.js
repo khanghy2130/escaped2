@@ -1,15 +1,16 @@
-const MENU_LINE_LENGTH = 20; // shouldn't cover 3 whole walls
+const MENU_LINE_MAX_LENGTH = 20; // shouldn't cover 3 whole walls
+const MENU_LINE_PROGRESS_SPEED = 10; // divisible by 5
 const MenuScene = {
     tt: "SQUARE",
     mapTiles: {},
     mapTileKeys: [],
     lines: [],
     letters: [],
-    // set up tt, mapTiles, mapTileKeys
+    // set up tt, mapTiles, mapTileKeys, lines
     setUpGrid: function (tt) {
         MenuScene.tt = tt;
         MenuScene.mapTiles = {};
-        // 0 => 12, -4 => 12
+        // map size: 0 => 12, -4 => 12
         for (let y = -4; y < 13; y++) {
             for (let x = 0; x < 13; x++) {
                 const pos = [x, y];
@@ -17,11 +18,34 @@ const MenuScene = {
             }
         }
         MenuScene.mapTileKeys = Object.keys(MenuScene.mapTiles);
+        // connect neighbors
+        connectNeighbors(MenuScene.mapTileKeys, MenuScene.mapTiles);
+        MenuScene.lines = [];
+        for (let i = 0; i < 10; i++) { // add multiple lines
+            // pick a tile then a wall
+            const pickedTile = MenuScene.mapTiles[getRandomItemFromArr(MenuScene.mapTileKeys)];
+            MenuScene.lines.push({
+                timer: 120 + i * 100,
+                length: 0, wallsList: [{
+                        tile: pickedTile, progress: 0,
+                        twoRenderPos: [
+                            pickedTile.verticesList[0],
+                            pickedTile.verticesList[1]
+                        ]
+                    }]
+            });
+        }
+        /// test runnnnnnnn
+        MenuScene.lines.forEach(l => {
+            l.wallsList.push(getNextWallsListItem(l.wallsList[0]));
+        });
     },
-    render: function (p) {
+    render: function () {
         if (MenuScene.mapTileKeys.length === 0) {
             return;
         } // not set up
+        // renders grid ////
+        p.textSize(12);
         p.stroke(MAIN_THEME.LIGHT);
         p.strokeWeight(1);
         MenuScene.mapTileKeys.forEach((tileKey) => {
@@ -30,13 +54,61 @@ const MenuScene = {
                 p.noFill();
             else
                 p.fill(100, 100, 100);
-            renderTile(p, tile);
+            renderTile(tile);
+        });
+        // renders test line /////
+        p.stroke(200, 0, 0);
+        p.strokeWeight(5);
+        MenuScene.lines.forEach(l => {
+            l.wallsList.forEach(WLitem => {
+                p.line(WLitem.twoRenderPos[0][0], WLitem.twoRenderPos[0][1], WLitem.twoRenderPos[1][0], WLitem.twoRenderPos[1][1]);
+            });
         });
     },
-    mouseReleased: function (p) {
+    mouseReleased: function () {
         // toggleTileMap(p);
     }
 };
+function getNextWallsListItem(currentItem) {
+    let nextItem; // list of possible next wallsList item
+    const [firstVertex, lastVertex] = currentItem.twoRenderPos;
+    const possibleItems = [];
+    const tilesList = [currentItem.tile];
+    const thisTileNeighbors = currentItem.tile.neighbors;
+    Object.keys(thisTileNeighbors).forEach(nKey => {
+        const n = thisTileNeighbors[nKey].tile;
+        if (n) {
+            tilesList.push(n);
+        }
+    });
+    // add to possibleItems
+    tilesList.forEach((t) => {
+        // check for same vertex only
+        t.verticesList.some((vpos, posIndex) => {
+            if (p.dist(vpos[0], vpos[1], lastVertex[0], lastVertex[1]) < 1) {
+                // found matching vertex!
+                [posIndex - 1, posIndex + 1].forEach(vIndex => {
+                    // constrain
+                    if (vIndex < 0)
+                        vIndex = t.verticesList.length - 1;
+                    if (vIndex >= t.verticesList.length)
+                        vIndex = 0;
+                    const possibleNextVertex = t.verticesList[vIndex];
+                    const isFirstVertex = p.dist(possibleNextVertex[0], possibleNextVertex[1], firstVertex[0], firstVertex[1]) < 1;
+                    if (isFirstVertex) {
+                        return;
+                    } // must not be first vertex
+                    possibleItems.push({ tile: t, progress: 0, twoRenderPos: [
+                            lastVertex, possibleNextVertex
+                        ] });
+                });
+                return true;
+            }
+            return false; // not same vertex
+        });
+    });
+    return getRandomItemFromArr(possibleItems);
+}
 const temList = [];
 for (let y = -5; y <= 15; y++) {
     for (let x = 0; x <= 15; x++) {
@@ -44,10 +116,10 @@ for (let y = -5; y <= 15; y++) {
     }
 }
 // set up with temList, render YES colored
-function toggleTileMap(p) {
+function toggleTileMap() {
     MenuScene.mapTileKeys.some((tileKey) => {
         const tile = MenuScene.mapTiles[tileKey];
-        if (checkTileHovered(p, tile)) {
+        if (checkTileHovered(tile)) {
             if (tile.item === "YES")
                 tile.item = null;
             else
@@ -70,12 +142,14 @@ function printMap() {
     });
     console.log(result);
 }
-const sketch = (p) => {
+const sketch = (_p) => {
+    p = _p;
     let previousClickFrame = 0;
     p.setup = () => {
         p.createCanvas(600, 600);
         p.rectMode(p.CENTER);
         p.textAlign(p.CENTER, p.CENTER);
+        p.frameRate(60);
         //p.textFont("fantasy"); //////////// createFont();
         p.angleMode(p.DEGREES); ///////// angleMode = "degrees";
         //////
@@ -85,8 +159,7 @@ const sketch = (p) => {
     p.draw = () => {
         p.push();
         p.background(MAIN_THEME.DARK);
-        p.textSize(12);
-        MenuScene.render(p);
+        SCENES[currentScene].render(); // renders scene
         p.pop();
     };
     p.mouseReleased = () => {
@@ -95,8 +168,7 @@ const sketch = (p) => {
             return;
         else
             previousClickFrame = p.frameCount;
-        // mouseReleased for each scene
-        MenuScene.mouseReleased(p);
+        SCENES[currentScene].mouseReleased();
     };
 };
 window.onload = () => {
@@ -224,10 +296,10 @@ CENTER_TILES.TRIANGLE.renderPos = [0, 0];
 CENTER_TILES.TRIANGLE.verticesList.forEach(vertex => {
     vertex[1] -= CONSTANTS.TRIANGLE_HEIGHT - (2 * CONSTANTS.TRIANGLE_CENTER_Y);
 });
-function checkTileHovered(p, tile) {
+function checkTileHovered(tile) {
     return p.dist(tile.renderPos[0], tile.renderPos[1], p.mouseX, p.mouseY) < RADIUS_SCALINGS[tile.tt];
 }
-function renderTile(p, tile) {
+function renderTile(tile) {
     p.beginShape();
     tile.verticesList.forEach(vPos => p.vertex(vPos[0], vPos[1]));
     p.endShape(p.CLOSE);
@@ -238,7 +310,7 @@ function renderTile(p, tile) {
     // p.pop();
 }
 function renderTransitionalTile(props) {
-    let { p, tile, renderPos, scaleValue, rotateValue, extraRender } = props;
+    let { tile, renderPos, scaleValue, rotateValue, extraRender } = props;
     renderPos = renderPos || tile.renderPos;
     p.push();
     p.translate(renderPos[0], renderPos[1]);
@@ -246,14 +318,14 @@ function renderTransitionalTile(props) {
     p.rotate(rotateValue);
     if (tile.tt === "TRIANGLE" && !tile.isUpward)
         p.rotate(180);
-    renderTile(p, CENTER_TILES[tile.tt]);
+    renderTile(CENTER_TILES[tile.tt]);
     if (extraRender) {
         extraRender();
     }
     p.pop();
 }
 function renderPlayer(fillColor, strokeColor, props) {
-    const p = props.p, tile = props.tile;
+    const tile = props.tile;
     p.fill(fillColor[0], fillColor[1], fillColor[2]);
     p.noStroke();
     props.extraRender = function () {
@@ -317,7 +389,7 @@ class Button {
     constructor(t, x, y, w, h, s, action, doHoverCheck) {
         this.isHovered = false;
         this.action = action;
-        this.draw = function (p) {
+        this.draw = function () {
             if (!doHoverCheck || doHoverCheck()) {
                 if (p.mouseX > x - w / 2 && p.mouseX < x + w / 2 &&
                     p.mouseY > y - h / 2 && p.mouseY < y + h / 2) {
@@ -350,7 +422,16 @@ vt = new Button("Button",300, 300, 300, 100, 50, ()=>console.log("uh"));
 vt.draw(p);
 vt.checkClicked(); // returns boolean, call this when trigger input
 */
+let p;
 let currentScene = "MENU";
+const SCENES = {
+    "MENU": MenuScene,
+    "GENERATING": null,
+    "PLAY": null,
+    "GAMEOVER": null,
+    "REPORT": null,
+    "SHOP": null
+};
 function renderArrow(p, props) {
     const { r, s, x, y } = props;
     p.push();
@@ -361,5 +442,21 @@ function renderArrow(p, props) {
     p.line(20, -30, 50, 0);
     p.line(20, 30, 50, 0);
     p.pop();
+}
+function getRandomItemFromArr(arr) {
+    return arr[p.floor(p.random(0, arr.length))];
+}
+function connectNeighbors(mapKeys, mapTiles) {
+    mapKeys.forEach((tileKey) => {
+        const currentTile = mapTiles[tileKey];
+        Object.keys(currentTile.neighbors).forEach((nKey) => {
+            const nTile = mapTiles[nKey];
+            if (nTile) { // if exists, modify current neighbor object
+                currentTile.neighbors[nKey] = {
+                    tile: mapTiles[nKey], isEdge: false, isWalled: false
+                };
+            }
+        });
+    });
 }
 //# sourceMappingURL=build.js.map
