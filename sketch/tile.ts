@@ -1,8 +1,5 @@
-const MAIN_THEME: {LIGHT: number, DARK: number} = {
-    LIGHT: 240, DARK: 30
-};
 const SCALINGS = {
-	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
+	SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
 };
 const RADIUS_SCALINGS = {
 	SQUARE: SCALINGS.SQUARE * 0.5, 
@@ -19,6 +16,7 @@ const CONSTANTS = {
 };
 
 type Tile_Type = "TRIANGLE" | "SQUARE" | "HEXAGON";
+const TTs: Tile_Type[] = ["HEXAGON", "SQUARE", "TRIANGLE"];
 type Position2D = [number, number];
 
 interface NeighborObject {

@@ -1,5 +1,6 @@
-const MENU_LINE_MAX_LENGTH = 20; // shouldn't cover 3 whole walls
-const MENU_LINE_PROGRESS_SPEED = 10; // divisible by 5
+const MENU_LINE_LENGTH = 220; // shouldn't cover 3 whole walls
+const MENU_LINE_TIMER = 120; // how long a line appears
+let MENU_LINE_SPEED = 10; // divisible by 5
 const MenuScene = {
     tt: "SQUARE",
     mapTiles: {},
@@ -20,12 +21,18 @@ const MenuScene = {
         MenuScene.mapTileKeys = Object.keys(MenuScene.mapTiles);
         // connect neighbors
         connectNeighbors(MenuScene.mapTileKeys, MenuScene.mapTiles);
+        if (tt === "HEXAGON") {
+            MENU_LINE_SPEED = 15;
+        }
+        else {
+            MENU_LINE_SPEED = 10;
+        }
         MenuScene.lines = [];
-        for (let i = 0; i < 10; i++) { // add multiple lines
+        for (let i = 0; i < 20; i++) { // add multiple lines
             // pick a tile then a wall
             const pickedTile = MenuScene.mapTiles[getRandomItemFromArr(MenuScene.mapTileKeys)];
             MenuScene.lines.push({
-                timer: 120 + i * 100,
+                timer: MENU_LINE_TIMER + i * 30,
                 length: 0, wallsList: [{
                         tile: pickedTile, progress: 0,
                         twoRenderPos: [
@@ -35,33 +42,66 @@ const MenuScene = {
                     }]
             });
         }
-        /// test runnnnnnnn
-        MenuScene.lines.forEach(l => {
-            l.wallsList.push(getNextWallsListItem(l.wallsList[0]));
-        });
     },
     render: function () {
-        if (MenuScene.mapTileKeys.length === 0) {
+        // renders title
+        /////////////////////
+        // set up grid if not having one or all done
+        const allLinesDone = MenuScene.lines.every(l => l.length <= 0 && l.timer <= 0);
+        if (MenuScene.lines.length === 0 || allLinesDone) {
+            MenuScene.setUpGrid(TTs[p.floor(p.random(0, 3))]);
             return;
-        } // not set up
-        // renders grid ////
-        p.textSize(12);
+        }
+        // update & render lines
         p.stroke(MAIN_THEME.LIGHT);
-        p.strokeWeight(1);
-        MenuScene.mapTileKeys.forEach((tileKey) => {
-            const tile = MenuScene.mapTiles[tileKey];
-            if (tile.item !== "YES")
-                p.noFill();
-            else
-                p.fill(100, 100, 100);
-            renderTile(tile);
-        });
-        // renders test line /////
-        p.stroke(200, 0, 0);
         p.strokeWeight(5);
         MenuScene.lines.forEach(l => {
+            if (l.wallsList.length <= 0)
+                return;
+            l.timer--;
+            // time to moving forward?
+            if (l.timer <= MENU_LINE_TIMER && l.timer >= 0) {
+                l.length += MENU_LINE_SPEED;
+                const headWall = l.wallsList[0];
+                if (headWall.progress < 100) { // still covering the wall
+                    headWall.progress += MENU_LINE_SPEED;
+                }
+                else { // covered the wall? add new wall
+                    l.wallsList.unshift(getNextWallsListItem(headWall));
+                }
+            }
+            // shrinking (when ending or at max length)
+            if (l.timer < 0 || l.length >= MENU_LINE_LENGTH) {
+                l.length -= MENU_LINE_SPEED;
+                const tailWall = l.wallsList[l.wallsList.length - 1];
+                if (tailWall.progress < 200) { // still shrinking
+                    tailWall.progress += MENU_LINE_SPEED;
+                }
+                else { // done shrinking
+                    // remove wall
+                    l.wallsList.pop();
+                }
+            }
+            // render line
             l.wallsList.forEach(WLitem => {
-                p.line(WLitem.twoRenderPos[0][0], WLitem.twoRenderPos[0][1], WLitem.twoRenderPos[1][0], WLitem.twoRenderPos[1][1]);
+                if (WLitem.progress <= 0) {
+                    return;
+                } // not started
+                // growing?
+                if (WLitem.progress <= 100) {
+                    const headRenderPos = [
+                        p.map(WLitem.progress, 0, 100, WLitem.twoRenderPos[0][0], WLitem.twoRenderPos[1][0]),
+                        p.map(WLitem.progress, 0, 100, WLitem.twoRenderPos[0][1], WLitem.twoRenderPos[1][1])
+                    ];
+                    p.line(WLitem.twoRenderPos[0][0], WLitem.twoRenderPos[0][1], headRenderPos[0], headRenderPos[1]);
+                }
+                else if (WLitem.progress <= 200) {
+                    const tailRenderPos = [
+                        p.map(WLitem.progress, 200, 100, WLitem.twoRenderPos[1][0], WLitem.twoRenderPos[0][0]),
+                        p.map(WLitem.progress, 200, 100, WLitem.twoRenderPos[1][1], WLitem.twoRenderPos[0][1])
+                    ];
+                    p.line(tailRenderPos[0], tailRenderPos[1], WLitem.twoRenderPos[1][0], WLitem.twoRenderPos[1][1]);
+                }
             });
         });
     },
@@ -115,7 +155,19 @@ for (let y = -5; y <= 15; y++) {
         temList.push([x, y]);
     }
 }
-// set up with temList, render YES colored
+// set up with temList
+/*
+p.textSize(12);
+p.stroke(MAIN_THEME.LIGHT);
+p.strokeWeight(1);
+MenuScene.mapTileKeys.forEach((tileKey: string) => {
+    const tile : Tile = MenuScene.mapTiles[tileKey];
+    if (tile.item !== "YES") p.noFill();
+    else p.fill(100, 100, 100);
+
+    renderTile(tile);
+});
+*/
 function toggleTileMap() {
     MenuScene.mapTileKeys.some((tileKey) => {
         const tile = MenuScene.mapTiles[tileKey];
@@ -152,9 +204,6 @@ const sketch = (_p) => {
         p.frameRate(60);
         //p.textFont("fantasy"); //////////// createFont();
         p.angleMode(p.DEGREES); ///////// angleMode = "degrees";
-        //////
-        const tts = ["HEXAGON", "SQUARE", "TRIANGLE"];
-        MenuScene.setUpGrid(tts[0]); //p.floor(p.random(0,3))
     };
     p.draw = () => {
         p.push();
@@ -178,11 +227,8 @@ window.onload = () => {
     };
     new p5(sketch, canvasDiv);
 };
-const MAIN_THEME = {
-    LIGHT: 240, DARK: 30
-};
 const SCALINGS = {
-    SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 45.0
+    SQUARE: 80.0, TRIANGLE: 110.0, HEXAGON: 50.0
 };
 const RADIUS_SCALINGS = {
     SQUARE: SCALINGS.SQUARE * 0.5,
@@ -195,6 +241,7 @@ const CONSTANTS = {
     TRIANGLE_HEIGHT: SCALINGS.TRIANGLE * Math.sqrt(3) / 2,
     TRIANGLE_CENTER_Y: SCALINGS.TRIANGLE / (Math.sqrt(3) * 2)
 };
+const TTs = ["HEXAGON", "SQUARE", "TRIANGLE"];
 class Square_Tile {
     constructor(pos) {
         this.pos = [0, 0];
@@ -423,6 +470,9 @@ vt.draw(p);
 vt.checkClicked(); // returns boolean, call this when trigger input
 */
 let p;
+const MAIN_THEME = {
+    LIGHT: 240, DARK: 20
+};
 let currentScene = "MENU";
 const SCENES = {
     "MENU": MenuScene,

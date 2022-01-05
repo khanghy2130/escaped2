@@ -11,9 +11,7 @@ const sketch = (_p: p5) => {
         p.angleMode(p.DEGREES); ///////// angleMode = "degrees";
 
 
-        //////
-        const tts: Tile_Type[] = ["HEXAGON", "SQUARE", "TRIANGLE"];
-        MenuScene.setUpGrid(tts[0]); //p.floor(p.random(0,3))
+        
     };
 
 

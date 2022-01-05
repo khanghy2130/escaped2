@@ -1,5 +1,7 @@
 let p: p5;
-
+const MAIN_THEME: {LIGHT: number, DARK: number} = {
+    LIGHT: 240, DARK: 20
+};
 
 type SCENE_TYPE = "MENU" | "GENERATING" | "PLAY" | "GAMEOVER" | "REPORT" | "SHOP";
 let currentScene: SCENE_TYPE = "MENU";
